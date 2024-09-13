@@ -10,6 +10,50 @@ const MapboxMap = ({ layers }) => {
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
+  const epsg3857toEpsg4326 = (pos) => {
+    let [x, y] = pos;
+    x = (x * 180) / 20037508.34;
+    y = (y * 180) / 20037508.34;
+    y = (Math.atan(Math.exp(y * (Math.PI / 180))) * 360) / Math.PI - 90;
+    return [x, y];
+  };
+
+  const returnEPSG4326 = (coordinates) => {
+    if (Math.abs(coordinates[0]) > 180 || Math.abs(coordinates[1]) > 90) {
+      return epsg3857toEpsg4326(coordinates);
+    }
+    return coordinates;
+  };
+
+  const transformCoords = (coords) => {
+    if (typeof coords[0] === 'number') {
+      return returnEPSG4326(coords);
+    } else if (Array.isArray(coords[0])) {
+      return coords.map(coord => returnEPSG4326(coord));
+    }
+  };
+
+  const convertGeometry = (geometry) => {
+    const geomType = geometry.type;
+    if (geomType === 'Point') {
+      geometry.coordinates = transformCoords(geometry.coordinates);
+    } else if (geomType === 'LineString' || geomType === 'MultiPoint') {
+      geometry.coordinates = transformCoords(geometry.coordinates);
+    } else if (geomType === 'Polygon' || geomType === 'MultiLineString') {
+      geometry.coordinates = geometry.coordinates.map(ring => transformCoords(ring));
+    } else if (geomType === 'MultiPolygon') {
+      geometry.coordinates = geometry.coordinates.map(polygon => polygon.map(ring => transformCoords(ring)));
+    }
+    return geometry;
+  };
+
+  const convertGeoJSON = (geojsonData) => {
+    geojsonData.features.forEach(feature => {
+      feature.geometry = convertGeometry(feature.geometry);
+    });
+    return geojsonData;
+  };
+
   const initializeMap = useCallback(() => {
     if (mapRef.current) return; // Map is already initialized
 
@@ -38,10 +82,10 @@ const MapboxMap = ({ layers }) => {
 
   const updateMapLayers = useCallback(() => {
     if (!mapLoaded) return;
-  
+
     const map = mapRef.current;
     if (!map) return;
-  
+
     // Remove layers not present in the current state
     const currentLayerIds = new Set(layers.map(layer => `geojson-layer-${layer.id}`));
     map.getStyle().layers.forEach(layer => {
@@ -50,32 +94,35 @@ const MapboxMap = ({ layers }) => {
         map.removeSource(layer.id);
       }
     });
-  
+
     // Add or update layers based on current state
     let bounds = new mapboxgl.LngLatBounds();
     let hasVisibleLayers = false;
-  
+
     layers.forEach(layer => {
       const layerIdBase = `geojson-layer-${layer.id}`;
-      
+
+      // Convert GeoJSON data to EPSG:4326 if needed
+      const convertedGeoJSON = convertGeoJSON(layer.data);
+
       // Filter features by geometry type
       const pointFeatures = {
-        type: "FeatureCollection",
-        features: layer.data.features.filter(feature => feature.geometry.type === "Point")
+        type: 'FeatureCollection',
+        features: convertedGeoJSON.features.filter(feature => feature.geometry.type === 'Point')
       };
-  
+
       const lineStringFeatures = {
-        type: "FeatureCollection",
-        features: layer.data.features.filter(feature => 
-          feature.geometry.type === "LineString" || feature.geometry.type === "MultiLineString")
+        type: 'FeatureCollection',
+        features: convertedGeoJSON.features.filter(feature => 
+          feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString')
       };
-  
+
       const polygonFeatures = {
-        type: "FeatureCollection",
-        features: layer.data.features.filter(feature => 
-          feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon")
+        type: 'FeatureCollection',
+        features: convertedGeoJSON.features.filter(feature => 
+          feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')
       };
-  
+
       // Handle Points
       if (pointFeatures.features.length > 0) {
         const pointLayerId = `${layerIdBase}-points`;
@@ -98,7 +145,7 @@ const MapboxMap = ({ layers }) => {
         }
         map.setLayoutProperty(pointLayerId, 'visibility', layer.visible ? 'visible' : 'none');
       }
-  
+
       // Handle LineStrings
       if (lineStringFeatures.features.length > 0) {
         const lineLayerId = `${layerIdBase}-lines`;
@@ -121,7 +168,7 @@ const MapboxMap = ({ layers }) => {
         }
         map.setLayoutProperty(lineLayerId, 'visibility', layer.visible ? 'visible' : 'none');
       }
-  
+
       // Handle Polygons
       if (polygonFeatures.features.length > 0) {
         const polygonLayerId = `${layerIdBase}-polygons`;
@@ -144,9 +191,9 @@ const MapboxMap = ({ layers }) => {
         }
         map.setLayoutProperty(polygonLayerId, 'visibility', layer.visible ? 'visible' : 'none');
       }
-  
+
       // Extend the bounds for all feature types
-      layer.data.features.forEach(feature => {
+      convertedGeoJSON.features.forEach(feature => {
         const geometryType = feature.geometry.type;
         if (geometryType === 'Point') {
           bounds.extend(feature.geometry.coordinates);
@@ -159,10 +206,10 @@ const MapboxMap = ({ layers }) => {
           coordinates.forEach(coord => bounds.extend(coord));
         }
       });
-  
+
       hasVisibleLayers = true;
     });
-  
+
     // Apply zoom based on the presence of layers
     if (hasVisibleLayers) {
       map.fitBounds(bounds, { padding: 20, duration: 1000 });
@@ -174,12 +221,12 @@ const MapboxMap = ({ layers }) => {
       });
     }
   }, [layers, mapLoaded]);
-  
 
   useEffect(() => {
     updateMapLayers();
   }, [updateMapLayers]);
 
+  
   const handleThemeChange = (newTheme) => {
     if (mapRef.current) {
       const map = mapRef.current;
