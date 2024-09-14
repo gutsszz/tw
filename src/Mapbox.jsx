@@ -206,27 +206,50 @@ const MapboxMap = ({ layers,zoomid}) => {
         map.setLayoutProperty(lineLayerId, 'visibility', layer.visible ? 'visible' : 'none');
       }
 
-       // Handle Polygons
-       if (polygonFeatures.features.length > 0) {
+      if (polygonFeatures.features.length > 0) {
         const polygonLayerId = `${layerIdBase}-polygons`;
+        const borderLayerId = `${layerIdBase}-border`;
+    
+        // Add or update polygon layer
         if (!map.getSource(polygonLayerId)) {
-          map.addSource(polygonLayerId, {
-            type: 'geojson',
-            data: polygonFeatures
-          });
-          map.addLayer({
-            id: polygonLayerId,
-            type: 'fill',
-            source: polygonLayerId,
-            paint: {
-              'fill-color': '#00FF00',
-              'fill-opacity': 0.35
-            }
-          });
+            map.addSource(polygonLayerId, {
+                type: 'geojson',
+                data: polygonFeatures
+            });
+            map.addLayer({
+                id: polygonLayerId,
+                type: 'fill',
+                source: polygonLayerId,
+                paint: {
+                    'fill-color': '#00FF00',
+                    'fill-opacity': 0.35
+                }
+            });
         } else {
-          map.getSource(polygonLayerId).setData(polygonFeatures);
+            map.getSource(polygonLayerId).setData(polygonFeatures);
         }
         map.setLayoutProperty(polygonLayerId, 'visibility', layer.visible ? 'visible' : 'none');
+    
+        // Add or update border layer
+        if (!map.getSource(borderLayerId)) {
+            map.addSource(borderLayerId, {
+                type: 'geojson',
+                data: polygonFeatures
+            });
+            map.addLayer({
+                id: borderLayerId,
+                type: 'line',
+                source: borderLayerId,
+                paint: {
+                    'line-color': '#009900', // Darker border color
+                    'line-width': 2
+                }
+            });
+        } else {
+            map.getSource(borderLayerId).setData(polygonFeatures);
+        }
+        map.setLayoutProperty(borderLayerId, 'visibility', layer.visible ? 'visible' : 'none');
+    
 
                   // Add click event listener for polygons
 map.on('click', polygonLayerId, (e) => {
@@ -352,25 +375,49 @@ map.on('mouseleave', polygonLayerId, () => {
             map.setLayoutProperty(lineLayerId, 'visibility', layer.visible ? 'visible' : 'none');
           }
     
-          // Handle Polygons
           if (polygonFeatures.features.length > 0) {
             const polygonLayerId = `${layer.id}-polygons`;
+            const borderLayerId = `${layer.id}-border`; // Added border layer ID
+        
+            // Add or update polygon layer
             if (!map.getSource(polygonLayerId)) {
-              map.addSource(polygonLayerId, {
-                type: 'geojson',
-                data: polygonFeatures
-              });
-              map.addLayer({
-                id: polygonLayerId,
-                type: 'fill',
-                source: polygonLayerId,
-                paint: {
-                  'fill-color': '#00FF00',
-                  'fill-opacity': 0.35
-                }
-              });
+                map.addSource(polygonLayerId, {
+                    type: 'geojson',
+                    data: polygonFeatures
+                });
+                map.addLayer({
+                    id: polygonLayerId,
+                    type: 'fill',
+                    source: polygonLayerId,
+                    paint: {
+                        'fill-color': '#00FF00',
+                        'fill-opacity': 0.35
+                    }
+                });
+            } else {
+                map.getSource(polygonLayerId).setData(polygonFeatures);
             }
             map.setLayoutProperty(polygonLayerId, 'visibility', layer.visible ? 'visible' : 'none');
+        
+            // Add or update border layer
+            if (!map.getSource(borderLayerId)) {
+                map.addSource(borderLayerId, {
+                    type: 'geojson',
+                    data: polygonFeatures
+                });
+                map.addLayer({
+                    id: borderLayerId,
+                    type: 'line',
+                    source: borderLayerId,
+                    paint: {
+                        'line-color': '#009900', // Darker border color
+                        'line-width': 2
+                    }
+                });
+            } else {
+                map.getSource(borderLayerId).setData(polygonFeatures);
+            }
+            map.setLayoutProperty(borderLayerId, 'visibility', layer.visible ? 'visible' : 'none');
           }
         });
       });
