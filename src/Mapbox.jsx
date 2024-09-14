@@ -206,8 +206,8 @@ const MapboxMap = ({ layers,zoomid}) => {
         map.setLayoutProperty(lineLayerId, 'visibility', layer.visible ? 'visible' : 'none');
       }
 
-      // Handle Polygons
-      if (polygonFeatures.features.length > 0) {
+       // Handle Polygons
+       if (polygonFeatures.features.length > 0) {
         const polygonLayerId = `${layerIdBase}-polygons`;
         if (!map.getSource(polygonLayerId)) {
           map.addSource(polygonLayerId, {
@@ -227,6 +227,39 @@ const MapboxMap = ({ layers,zoomid}) => {
           map.getSource(polygonLayerId).setData(polygonFeatures);
         }
         map.setLayoutProperty(polygonLayerId, 'visibility', layer.visible ? 'visible' : 'none');
+
+                  // Add click event listener for polygons
+map.on('click', polygonLayerId, (e) => {
+  const feature = e.features[0];
+  const coordinates = e.lngLat;
+
+  const area = parseFloat(feature.properties.area);
+  const displayArea = isNaN(area) ? "Area's information not available" : `${area.toFixed(2)} m²`;
+
+  const popupHTML = `
+    <div style="text-align: center;">
+      <p><strong>Area:</strong> ${displayArea}</p>
+    </div>
+  `;
+
+  new mapboxgl.Popup({
+    closeButton: true,
+    closeOnClick: true,
+    offset: [0, -10]
+  })
+    .setLngLat(coordinates)
+    .setHTML(popupHTML)
+    .addTo(map);
+});
+
+// Change cursor to pointer on hover
+map.on('mouseenter', polygonLayerId, () => {
+  map.getCanvas().style.cursor = 'pointer';
+});
+
+map.on('mouseleave', polygonLayerId, () => {
+  map.getCanvas().style.cursor = '';
+});
       }
 
       // Extend the bounds for all feature types
