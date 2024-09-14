@@ -220,7 +220,7 @@ const MapboxMap = ({ layers,zoomid}) => {
             source: polygonLayerId,
             paint: {
               'fill-color': '#00FF00',
-              'fill-opacity': 0.5
+              'fill-opacity': 0.35
             }
           });
         } else {
@@ -366,7 +366,7 @@ map.on('mouseleave', polygonLayerId, () => {
                 source: polygonLayerId,
                 paint: {
                   'fill-color': '#00FF00',
-                  'fill-opacity': 0.5
+                  'fill-opacity': 0.35
                 }
               });
             }
