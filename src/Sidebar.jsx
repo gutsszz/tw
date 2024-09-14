@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react';
+// src/Sidebar.js
+import React, { useState, useRef } from 'react';
 import { EyeIcon, PlusIcon, TrashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
-import './App.css';
 
 const Sidebar = ({ 
   onGeoJsonUpload, 
@@ -39,12 +39,12 @@ const Sidebar = ({
   return (
     <>
       <div 
-        className={`fixed top-0 right-0 z-20 h-full bg-white shadow-md border-l border-gray-300 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} w-64 flex flex-col`}
+        className={`fixed top-14 right-0 z-20 h-[calc(100vh-3.7rem)] bg-white shadow-md border-l border-gray-300 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'} w-64 flex flex-col`}
       >
         {/* Header */}
         <div className="flex items-center border-b border-gray-300 p-2 bg-gray-100">
           <button
-            className="bg-blue-500 hover:bg-blue-600 p-1 rounded-md mr-3"
+            className="bg-blue-500 hover:bg-blue-600 p-1 rounded-md mr-2"
             onClick={() => fileInputRef.current.click()}
           >
             <PlusIcon className="h-5 w-5 text-white font-bold" />
@@ -132,11 +132,11 @@ const Sidebar = ({
 
       {/* Sidebar Toggle Button */}
       <button
-        className={`fixed right-0 top-1/2 transform -translate-y-1/2 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'hidden' : 'block'} w-7 h-8 z-10`}
+        className={`fixed right-0 top-1/2 transform -translate-y-1/2 transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'hidden' : 'block'} w-8 h-10 z-10`}
         onClick={() => setSidebarOpen(true)}
       >
         <div className="relative flex justify-center items-center h-full w-full">
-          <div className="absolute h-12 w-24 bg-blue-500 rounded-bl-full rounded-br-full rotate-90 flex items-center justify-center">
+          <div className="absolute h-14 w-24 bg-blue-500 rounded-bl-full rounded-br-full rotate-90 flex items-center justify-center">
             <div className="absolute text-white text-xl font-bold">≡</div>
             <div className="absolute top-1/2 right-0 w-0 h-0 border-t-6 border-t-transparent border-b-6 border-b-blue-500 border-l-6 border-l-transparent transform translate-x-1"></div>
           </div>

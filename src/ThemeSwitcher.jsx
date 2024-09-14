@@ -23,7 +23,7 @@ const ThemeSelector = ({ onThemeChange }) => {
   ];
 
   return (
-    <div className="absolute top-2 left-2 z-10">
+    <div className="absolute top-20 left-2 z-10">
       {/* Button to toggle the dropdown */}
       <button
         onClick={() => setIsOpen(!isOpen)}

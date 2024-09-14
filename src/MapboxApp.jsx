@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import { db } from './firebase';
 import { doc, collection, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
 import './App.css';
+import Topbar from './Topbar';
 
 const MapboxApp = () => {
   const [layers, setLayers] = useState([]);
@@ -117,6 +118,9 @@ const MapboxApp = () => {
   }, []);
 
   return (
+    <>
+      <Topbar/>
+
     <div className="flex">
       <Sidebar 
         onGeoJsonUpload={handleGeoJsonUpload} 
@@ -129,6 +133,7 @@ const MapboxApp = () => {
       />
       <MapboxMap layers={layers} zoomid={zoomToLayerId} />
     </div>
+    </>
   );
 };
 
