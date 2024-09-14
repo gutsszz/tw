@@ -131,7 +131,7 @@ const MapboxApp = () => {
         setSelectedLayerId={setSelectedLayerId}
         handleClickZoom={handleClickZoom}
       />
-      <MapboxMap layers={layers} zoomid={zoomToLayerId} />
+      <MapboxMap layers={layers} zoomid={zoomToLayerId}  setZoom={setZoomToLayerId} />
     </div>
     </>
   );

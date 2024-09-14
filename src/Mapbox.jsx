@@ -5,7 +5,7 @@ import ThemeSelector from './ThemeSwitcher';
 
 mapboxgl.accessToken = 'pk.eyJ1IjoidGFsaGF3YXFxYXMxNCIsImEiOiJjbHBreHhscWEwMWU4MnFyenU3ODdmeTdsIn0.8IlEgMNGcbx806t363hDJg';
 
-const MapboxMap = ({ layers,zoomid}) => {
+const MapboxMap = ({ layers,zoomid,setZoom}) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -107,6 +107,9 @@ const MapboxMap = ({ layers,zoomid}) => {
             : feature.geometry.coordinates.flat(2); // Flatten coordinates for MultiPolygon
           coordinates.forEach(coord => bounds.extend(coord));
         }
+
+        setZoom(null);
+
       });
   
       if (!bounds.isEmpty()) {
