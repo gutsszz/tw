@@ -1,7 +1,7 @@
-.map-container {
-  width: calc(100vw - 16rem); 
+map-container {
+  width: 100vw ; 
   height: 100vh;
-  margin-right: 16rem; 
+
 }
 
 /* src/App.css */
