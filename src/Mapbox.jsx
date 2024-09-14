@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import './App.css';
-import ThemeSelector from './ThemeSwitcher'; // Import the new component
+import ThemeSelector from './ThemeSwitcher'; 
 
 mapboxgl.accessToken = 'pk.eyJ1IjoidGFsaGF3YXFxYXMxNCIsImEiOiJjbHBreHhscWEwMWU4MnFyenU3ODdmeTdsIn0.8IlEgMNGcbx806t363hDJg';
 
-const MapboxMap = ({ layers }) => {
+const MapboxMap = ({ layers,zoomid}) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+ 
+
 
   const epsg3857toEpsg4326 = (pos) => {
     let [x, y] = pos;
@@ -55,11 +57,11 @@ const MapboxMap = ({ layers }) => {
   };
 
   const initializeMap = useCallback(() => {
-    if (mapRef.current) return; // Map is already initialized
+    if (mapRef.current) return; 
 
     const map = new mapboxgl.Map({
       container: mapContainerRef.current,
-      style: 'mapbox://styles/mapbox/streets-v11', // Default theme
+      style: 'mapbox://styles/mapbox/streets-v11', 
       center: [0, 0],
       zoom: 1,
       attributionControl: false
@@ -79,7 +81,42 @@ const MapboxMap = ({ layers }) => {
   useEffect(() => {
     initializeMap();
   }, [initializeMap]);
-
+   
+  useEffect(() => {
+    if (!mapLoaded || !zoomid) return;
+  
+    const map = mapRef.current;
+    if (!map) return;
+  
+    // Find the layer that corresponds to the zoomToLayerId
+    const selectedLayer = layers.find(layer => layer.id === zoomid);
+  
+    if (selectedLayer) {
+      const bounds = new mapboxgl.LngLatBounds();
+  
+      selectedLayer.data.features.forEach(feature => {
+        const geometryType = feature.geometry.type;
+  
+        if (geometryType === 'Point') {
+          bounds.extend(feature.geometry.coordinates);
+        } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
+          feature.geometry.coordinates.forEach(coord => bounds.extend(coord));
+        } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
+          const coordinates = geometryType === 'Polygon'
+            ? feature.geometry.coordinates[0] // Outer boundary of the polygon
+            : feature.geometry.coordinates.flat(2); // Flatten coordinates for MultiPolygon
+          coordinates.forEach(coord => bounds.extend(coord));
+        }
+      });
+  
+      if (!bounds.isEmpty()) {
+        map.fitBounds(bounds, { padding: 50, maxZoom: 15,duration: 800 }); // Zoom to fit the layer
+      }
+    }
+  
+  
+  }, [zoomid]);
+  
   const updateMapLayers = useCallback(() => {
     if (!mapLoaded) return;
 
@@ -193,33 +230,13 @@ const MapboxMap = ({ layers }) => {
       }
 
       // Extend the bounds for all feature types
-      convertedGeoJSON.features.forEach(feature => {
-        const geometryType = feature.geometry.type;
-        if (geometryType === 'Point') {
-          bounds.extend(feature.geometry.coordinates);
-        } else if (geometryType === 'LineString' || geometryType === 'MultiLineString') {
-          feature.geometry.coordinates.forEach(coord => bounds.extend(coord));
-        } else if (geometryType === 'Polygon' || geometryType === 'MultiPolygon') {
-          const coordinates = geometryType === 'Polygon'
-            ? feature.geometry.coordinates[0] // Outer boundary of the polygon
-            : feature.geometry.coordinates.flat(2); // MultiPolygon flattened coordinates
-          coordinates.forEach(coord => bounds.extend(coord));
-        }
-      });
+      
 
       hasVisibleLayers = true;
     });
-
-    // Apply zoom based on the presence of layers
-    if (hasVisibleLayers) {
-      map.fitBounds(bounds, { padding: 20, duration: 1000 });
-    } else {
-      map.easeTo({
-        zoom: 1,
-        duration: 1000,
-        easing: t => t
-      });
-    }
+  
+   
+    
   }, [layers, mapLoaded]);
 
   useEffect(() => {

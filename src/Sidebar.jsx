@@ -2,7 +2,15 @@ import { useRef } from 'react';
 import { EyeIcon, PlusIcon, TrashIcon } from '@heroicons/react/24/outline';
 import './App.css';
 
-const Sidebar = ({ onGeoJsonUpload, layers, onToggleLayer, onSaveLayer, setSelectedLayerId, onDeleteLayer }) => {
+const Sidebar = ({ 
+  onGeoJsonUpload, 
+  layers, 
+  onToggleLayer, 
+  onSaveLayer, 
+  setSelectedLayerId, 
+  onDeleteLayer, 
+  handleClickZoom  // Assuming this function is passed as a prop
+}) => {
   const fileInputRef = useRef(null);
 
   const handleFileChange = (event) => {
@@ -51,23 +59,37 @@ const Sidebar = ({ onGeoJsonUpload, layers, onToggleLayer, onSaveLayer, setSelec
       <div className="flex flex-col p-2 space-y-2 overflow-y-auto flex-grow">
         {layers.length > 0 ? (
           layers.map(layer => (
-            <div key={layer.id} className="flex items-center justify-between mb-1 border-b py-1">
-              <div className="flex items-center space-x-2">
-                <button
-                  className="text-gray-500 hover:text-gray-700"
-                  onClick={() => onToggleLayer(layer.id)}
-                >
-                  <EyeIcon className={`h-5 w-5 ${layer.visible ? '' : 'opacity-50'}`} />
-                </button>
-                <span className="text-gray-800 text-sm">{layer.name}</span>
-              </div>
+            <div
+            key={layer.id}
+            className="flex items-center justify-between mb-1 border-b py-1"
+            style={{ cursor: 'pointer' }} // Change the mouse cursor to pointer
+            onMouseEnter={() => (document.body.style.cursor = 'pointer')} // Set cursor to pointer on hover
+            onMouseLeave={() => (document.body.style.cursor = 'default')} // Reset cursor after hover
+            onClick={() => handleClickZoom(layer.id)} // Call the zoom function on click
+          >
+            <div className="flex items-center space-x-2">
               <button
                 className="text-gray-500 hover:text-gray-700"
-                onClick={() => onDeleteLayer(layer.id)}
+                onClick={(e) => {
+                  e.stopPropagation(); // Prevent zoom on EyeIcon click
+                  onToggleLayer(layer.id);
+                }}
               >
-                <TrashIcon className="h-5 w-5" />
+                <EyeIcon className={`h-5 w-5 ${layer.visible ? '' : 'opacity-50'}`} />
               </button>
+              <span className="text-gray-800 text-sm">{layer.name}</span>
             </div>
+            <button
+              className="text-gray-500 hover:text-gray-700"
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent zoom on TrashIcon click
+                onDeleteLayer(layer.id);
+              }}
+            >
+              <TrashIcon className="h-5 w-5" />
+            </button>
+          </div>
+          
           ))
         ) : (
           <div className="text-gray-500 text-center text-sm">No layers uploaded yet</div>

@@ -1,7 +1,7 @@
 .map-container {
-  width: calc(100vw - 16rem); /* Adjust the width to account for the sidebar */
+  width: calc(100vw - 16rem); 
   height: 100vh;
-  margin-right: 16rem; /* Ensure the map is not hidden behind the sidebar */
+  margin-right: 16rem; 
 }
 
 /* src/App.css */
@@ -11,7 +11,7 @@
   background-color: #fff;
   box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
   padding: 20px;
-  overflow-y: auto; /* Optional if you add more content */
+  overflow-y: auto; 
 }
 
 .flex {

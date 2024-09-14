@@ -8,6 +8,7 @@ import './App.css';
 const MapboxApp = () => {
   const [layers, setLayers] = useState([]);
   const [selectedLayerId, setSelectedLayerId] = useState('');
+  const [zoomToLayerId, setZoomToLayerId] = useState(null);
 
   const handleToggleLayer = (id) => {
     setLayers(layers.map(layer =>
@@ -59,6 +60,15 @@ const MapboxApp = () => {
       console.error("Error saving layer:", error);
     }
   };
+
+
+  const handleClickZoom = (layerId) => {
+    const layer = layers.find(l => l.id === layerId);
+    if (layer) {
+      setZoomToLayerId(layerId);
+    }
+  };
+
 
   const handleDeleteLayer = async (id) => {
     try {
@@ -115,8 +125,9 @@ const MapboxApp = () => {
         onSaveLayer={handleSaveLayer}
         onDeleteLayer={handleDeleteLayer}
         setSelectedLayerId={setSelectedLayerId}
+        handleClickZoom={handleClickZoom}
       />
-      <MapboxMap layers={layers} />
+      <MapboxMap layers={layers} zoomid={zoomToLayerId} />
     </div>
   );
 };
