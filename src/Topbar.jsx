@@ -1,5 +1,3 @@
-// src/TopBar.js
-import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faBell, faUser } from '@fortawesome/free-solid-svg-icons';
 import logo from './logo-1.png'; // Replace with the actual path to your PNG image
