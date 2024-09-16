@@ -113,7 +113,7 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
       });
   
       if (!bounds.isEmpty()) {
-        map.fitBounds(bounds, { padding: 50, maxZoom: 15,duration: 800 }); // Zoom to fit the layer
+        map.fitBounds(bounds, { padding: 50, maxZoom: 15,duration: 1 }); // Zoom to fit the layer
       }
     }
   
