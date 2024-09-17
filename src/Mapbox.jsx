@@ -119,313 +119,297 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
   
   
   }, [zoomid]);
-  
   const updateMapLayers = useCallback(() => {
     if (!mapLoaded) return;
-
+  
     const map = mapRef.current;
     if (!map) return;
-
+  
     // Remove layers not present in the current state
-    const currentLayerIds = new Set(layers.map(layer => `geojson-layer-${layer.id}`));
+    const currentLayerIds = new Set(layers.flatMap(layer => [
+      `geojson-layer-${layer.id}-points`,
+      `geojson-layer-${layer.id}-lines`,
+      `geojson-layer-${layer.id}-polygons`,
+      `geojson-layer-${layer.id}-border`
+    ]));
+  
     map.getStyle().layers.forEach(layer => {
       if (layer.id.startsWith('geojson-layer-') && !currentLayerIds.has(layer.id)) {
         map.removeLayer(layer.id);
         map.removeSource(layer.id);
       }
     });
-
+  
     // Add or update layers based on current state
-    let bounds = new mapboxgl.LngLatBounds();
-    let hasVisibleLayers = false;
-
+    const layersToUpdate = {
+      points: [],
+      lines: [],
+      polygons: []
+    };
+  
+    // Function to get or create a source
+    const getOrCreateSource = (sourceId, data) => {
+      if (!map.getSource(sourceId)) {
+        map.addSource(sourceId, {
+          type: 'geojson',
+          data: data
+        });
+      } else {
+        map.getSource(sourceId).setData(data);
+      }
+    };
+  
+    // Function to get or create a layer
+    const getOrCreateLayer = (layerId, layerType, sourceId, paintOptions, visibility) => {
+      if (!map.getLayer(layerId)) {
+        map.addLayer({
+          id: layerId,
+          type: layerType,
+          source: sourceId,
+          paint: paintOptions,
+          layout: {
+            visibility: visibility ? 'visible' : 'none' // Control visibility here
+          }
+        });
+      } else {
+        for (const [key, value] of Object.entries(paintOptions)) {
+          map.setPaintProperty(layerId, key, value);
+        }
+        // Update visibility dynamically
+        map.setLayoutProperty(layerId, 'visibility', visibility ? 'visible' : 'none');
+      }
+    };
+  
     layers.forEach(layer => {
       const layerIdBase = `geojson-layer-${layer.id}`;
-
-      // Convert GeoJSON data to EPSG:4326 if needed
       const convertedGeoJSON = convertGeoJSON(layer.data);
-
-      // Filter features by geometry type
+  
       const pointFeatures = {
         type: 'FeatureCollection',
         features: convertedGeoJSON.features.filter(feature => feature.geometry.type === 'Point')
       };
-
+  
       const lineStringFeatures = {
         type: 'FeatureCollection',
-        features: convertedGeoJSON.features.filter(feature => 
+        features: convertedGeoJSON.features.filter(feature =>
           feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString')
+      };
+  
+      const polygonFeatures = {
+        type: 'FeatureCollection',
+        features: convertedGeoJSON.features.filter(feature =>
+          feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')
+      };
+  
+      const visibility = layer.visible; // Get visibility from the layer
+  
+      // Handle Points
+      if (pointFeatures.features.length > 0) {
+        const pointLayerId = `${layerIdBase}-points`;
+        getOrCreateSource(pointLayerId, pointFeatures);
+        getOrCreateLayer(pointLayerId, 'circle', pointLayerId, {
+          'circle-color': '#FF0000',
+          'circle-radius': 5
+        }, visibility);
+        layersToUpdate.points.push(pointLayerId);
+      }
+  
+      // Handle LineStrings
+      if (lineStringFeatures.features.length > 0) {
+        const lineLayerId = `${layerIdBase}-lines`;
+        getOrCreateSource(lineLayerId, lineStringFeatures);
+        getOrCreateLayer(lineLayerId, 'line', lineLayerId, {
+          'line-color': '#0000FF',
+          'line-width': 2
+        }, visibility);
+        layersToUpdate.lines.push(lineLayerId);
+      }
+  
+      // Handle Polygons
+      if (polygonFeatures.features.length > 0) {
+        const polygonLayerId = `${layerIdBase}-polygons`;
+        const borderLayerId = `${layerIdBase}-border`;
+  
+        getOrCreateSource(polygonLayerId, polygonFeatures);
+        getOrCreateLayer(polygonLayerId, 'fill', polygonLayerId, {
+          'fill-color': '#00FF00',
+          'fill-opacity': 0.35
+        }, visibility);
+        layersToUpdate.polygons.push(polygonLayerId);
+  
+        getOrCreateSource(borderLayerId, polygonFeatures);
+        getOrCreateLayer(borderLayerId, 'line', borderLayerId, {
+          'line-color': '#009900',
+          'line-width': 2
+        }, visibility);
+        layersToUpdate.polygons.push(borderLayerId);
+      }
+    });
+  
+    const popup = new mapboxgl.Popup({
+      closeButton: true,
+      closeOnClick: true,
+      offset: [0, -10]
+    });
+    
+    const handlePopup = (e) => {
+      const feature = e.features[0];
+      const coordinates = e.lngLat;
+      const area = parseFloat(feature.properties.area);
+      const displayArea = isNaN(area) ? "Area's information not available" : `${area.toFixed(2)} m²`;
+    
+      const popupHTML = `
+        <div style="text-align: center;">
+          <p><strong>Area:</strong> ${displayArea}</p>
+        </div>
+      `;
+    
+      popup
+        .setLngLat(coordinates)
+        .setHTML(popupHTML)
+        .addTo(map);
+    };
+    
+    layersToUpdate.polygons.forEach(polygonLayerId => {
+      map.on('click', polygonLayerId, handlePopup);
+    });
+    
+  
+  }, [layers, mapLoaded]);
+  
+  useEffect(() => {
+    updateMapLayers();
+  }, [updateMapLayers]);
+  
+  
+
+  
+  const handleThemeChange = (newTheme) => {
+  if (!mapRef.current) return;
+
+  const map = mapRef.current;
+
+  // Save the current layers and sources
+  const existingLayers = layers.map(layer => ({
+    id: `geojson-layer-${layer.id}`,
+    data: layer.data,
+    visible: layer.visible
+  }));
+
+  // Set the new theme
+  map.setStyle(`mapbox://styles/mapbox/${newTheme}`);
+
+  // Once the new style is loaded, re-add the layers and sources
+  map.once('styledata', () => {
+    existingLayers.forEach(layer => {
+      const { id: baseLayerId, data, visible } = layer;
+
+      const pointFeatures = {
+        type: "FeatureCollection",
+        features: data.features.filter(feature => feature.geometry.type === "Point")
+      };
+
+      const lineStringFeatures = {
+        type: "FeatureCollection",
+        features: data.features.filter(feature =>
+          feature.geometry.type === "LineString" || feature.geometry.type === "MultiLineString")
       };
 
       const polygonFeatures = {
-        type: 'FeatureCollection',
-        features: convertedGeoJSON.features.filter(feature => 
-          feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')
+        type: "FeatureCollection",
+        features: data.features.filter(feature =>
+          feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon")
+      };
+
+      // Utility function to add or update a layer
+      const addOrUpdateLayer = (layerId, layerType, sourceId, paintOptions) => {
+        if (!map.getLayer(layerId)) {
+          map.addLayer({
+            id: layerId,
+            type: layerType,
+            source: sourceId,
+            paint: paintOptions
+          });
+        } else {
+          // Update the paint properties if the layer already exists
+          Object.entries(paintOptions).forEach(([key, value]) => {
+            map.setPaintProperty(layerId, key, value);
+          });
+        }
+        map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
       };
 
       // Handle Points
       if (pointFeatures.features.length > 0) {
-        const pointLayerId = `${layerIdBase}-points`;
+        const pointLayerId = `${baseLayerId}-points`;
         if (!map.getSource(pointLayerId)) {
           map.addSource(pointLayerId, {
             type: 'geojson',
             data: pointFeatures
           });
-          map.addLayer({
-            id: pointLayerId,
-            type: 'circle',
-            source: pointLayerId,
-            paint: {
-              'circle-color': '#FF0000',
-              'circle-radius': 5
-            }
-          });
         } else {
           map.getSource(pointLayerId).setData(pointFeatures);
         }
-        map.setLayoutProperty(pointLayerId, 'visibility', layer.visible ? 'visible' : 'none');
+        addOrUpdateLayer(pointLayerId, 'circle', pointLayerId, {
+          'circle-color': '#FF0000',
+          'circle-radius': 5
+        });
       }
 
       // Handle LineStrings
       if (lineStringFeatures.features.length > 0) {
-        const lineLayerId = `${layerIdBase}-lines`;
+        const lineLayerId = `${baseLayerId}-lines`;
         if (!map.getSource(lineLayerId)) {
           map.addSource(lineLayerId, {
             type: 'geojson',
             data: lineStringFeatures
           });
-          map.addLayer({
-            id: lineLayerId,
-            type: 'line',
-            source: lineLayerId,
-            paint: {
-              'line-color': '#0000FF',
-              'line-width': 2
-            }
-          });
         } else {
           map.getSource(lineLayerId).setData(lineStringFeatures);
         }
-        map.setLayoutProperty(lineLayerId, 'visibility', layer.visible ? 'visible' : 'none');
+        addOrUpdateLayer(lineLayerId, 'line', lineLayerId, {
+          'line-color': '#0000FF',
+          'line-width': 2
+        });
       }
 
+      // Handle Polygons
       if (polygonFeatures.features.length > 0) {
-        const polygonLayerId = `${layerIdBase}-polygons`;
-        const borderLayerId = `${layerIdBase}-border`;
-    
+        const polygonLayerId = `${baseLayerId}-polygons`;
+        const borderLayerId = `${baseLayerId}-border`;
+
         // Add or update polygon layer
         if (!map.getSource(polygonLayerId)) {
-            map.addSource(polygonLayerId, {
-                type: 'geojson',
-                data: polygonFeatures
-            });
-            map.addLayer({
-                id: polygonLayerId,
-                type: 'fill',
-                source: polygonLayerId,
-                paint: {
-                    'fill-color': '#00FF00',
-                    'fill-opacity': 0.35
-                }
-            });
+          map.addSource(polygonLayerId, {
+            type: 'geojson',
+            data: polygonFeatures
+          });
         } else {
-            map.getSource(polygonLayerId).setData(polygonFeatures);
+          map.getSource(polygonLayerId).setData(polygonFeatures);
         }
-        map.setLayoutProperty(polygonLayerId, 'visibility', layer.visible ? 'visible' : 'none');
-    
+        addOrUpdateLayer(polygonLayerId, 'fill', polygonLayerId, {
+          'fill-color': '#00FF00',
+          'fill-opacity': 0.35
+        });
+
         // Add or update border layer
         if (!map.getSource(borderLayerId)) {
-            map.addSource(borderLayerId, {
-                type: 'geojson',
-                data: polygonFeatures
-            });
-            map.addLayer({
-                id: borderLayerId,
-                type: 'line',
-                source: borderLayerId,
-                paint: {
-                    'line-color': '#009900', // Darker border color
-                    'line-width': 2
-                }
-            });
+          map.addSource(borderLayerId, {
+            type: 'geojson',
+            data: polygonFeatures
+          });
         } else {
-            map.getSource(borderLayerId).setData(polygonFeatures);
+          map.getSource(borderLayerId).setData(polygonFeatures);
         }
-        map.setLayoutProperty(borderLayerId, 'visibility', layer.visible ? 'visible' : 'none');
-    
-
-                  // Add click event listener for polygons
-map.on('click', polygonLayerId, (e) => {
-  const feature = e.features[0];
-  const coordinates = e.lngLat;
-
-  const area = parseFloat(feature.properties.area);
-  const displayArea = isNaN(area) ? "Area's information not available" : `${area.toFixed(2)} m²`;
-
-  const popupHTML = `
-    <div style="text-align: center;">
-      <p><strong>Area:</strong> ${displayArea}</p>
-    </div>
-  `;
-
-  new mapboxgl.Popup({
-    closeButton: true,
-    closeOnClick: true,
-    offset: [0, -10]
-  })
-    .setLngLat(coordinates)
-    .setHTML(popupHTML)
-    .addTo(map);
-});
-
-// Change cursor to pointer on hover
-map.on('mouseenter', polygonLayerId, () => {
-  map.getCanvas().style.cursor = 'pointer';
-});
-
-map.on('mouseleave', polygonLayerId, () => {
-  map.getCanvas().style.cursor = '';
-});
-      }
-
-      // Extend the bounds for all feature types
-      
-
-      hasVisibleLayers = true;
-    });
-  
-   
-    
-  }, [layers, mapLoaded]);
-
-  useEffect(() => {
-    updateMapLayers();
-  }, [updateMapLayers]);
-
-  
-  const handleThemeChange = (newTheme) => {
-    if (mapRef.current) {
-      const map = mapRef.current;
-  
-      // Save the current layers and sources
-      const existingLayers = layers.map(layer => ({
-        id: `geojson-layer-${layer.id}`,
-        data: layer.data,
-        visible: layer.visible
-      }));
-  
-      map.setStyle(`mapbox://styles/mapbox/${newTheme}`); // Set the new theme
-  
-      // Once the new style is loaded, re-add the layers and sources
-      map.once('styledata', () => {
-        existingLayers.forEach(layer => {
-          const pointFeatures = {
-            type: "FeatureCollection",
-            features: layer.data.features.filter(feature => feature.geometry.type === "Point")
-          };
-    
-          const lineStringFeatures = {
-            type: "FeatureCollection",
-            features: layer.data.features.filter(feature => 
-              feature.geometry.type === "LineString" || feature.geometry.type === "MultiLineString")
-          };
-    
-          const polygonFeatures = {
-            type: "FeatureCollection",
-            features: layer.data.features.filter(feature => 
-              feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon")
-          };
-    
-          // Handle Points
-          if (pointFeatures.features.length > 0) {
-            const pointLayerId = `${layer.id}-points`;
-            if (!map.getSource(pointLayerId)) {
-              map.addSource(pointLayerId, {
-                type: 'geojson',
-                data: pointFeatures
-              });
-              map.addLayer({
-                id: pointLayerId,
-                type: 'circle',
-                source: pointLayerId,
-                paint: {
-                  'circle-color': '#FF0000',
-                  'circle-radius': 5
-                }
-              });
-            }
-            map.setLayoutProperty(pointLayerId, 'visibility', layer.visible ? 'visible' : 'none');
-          }
-    
-          // Handle LineStrings
-          if (lineStringFeatures.features.length > 0) {
-            const lineLayerId = `${layer.id}-lines`;
-            if (!map.getSource(lineLayerId)) {
-              map.addSource(lineLayerId, {
-                type: 'geojson',
-                data: lineStringFeatures
-              });
-              map.addLayer({
-                id: lineLayerId,
-                type: 'line',
-                source: lineLayerId,
-                paint: {
-                  'line-color': '#0000FF',
-                  'line-width': 2
-                }
-              });
-            }
-            map.setLayoutProperty(lineLayerId, 'visibility', layer.visible ? 'visible' : 'none');
-          }
-    
-          if (polygonFeatures.features.length > 0) {
-            const polygonLayerId = `${layer.id}-polygons`;
-            const borderLayerId = `${layer.id}-border`; // Added border layer ID
-        
-            // Add or update polygon layer
-            if (!map.getSource(polygonLayerId)) {
-                map.addSource(polygonLayerId, {
-                    type: 'geojson',
-                    data: polygonFeatures
-                });
-                map.addLayer({
-                    id: polygonLayerId,
-                    type: 'fill',
-                    source: polygonLayerId,
-                    paint: {
-                        'fill-color': '#00FF00',
-                        'fill-opacity': 0.35
-                    }
-                });
-            } else {
-                map.getSource(polygonLayerId).setData(polygonFeatures);
-            }
-            map.setLayoutProperty(polygonLayerId, 'visibility', layer.visible ? 'visible' : 'none');
-        
-            // Add or update border layer
-            if (!map.getSource(borderLayerId)) {
-                map.addSource(borderLayerId, {
-                    type: 'geojson',
-                    data: polygonFeatures
-                });
-                map.addLayer({
-                    id: borderLayerId,
-                    type: 'line',
-                    source: borderLayerId,
-                    paint: {
-                        'line-color': '#009900', // Darker border color
-                        'line-width': 2
-                    }
-                });
-            } else {
-                map.getSource(borderLayerId).setData(polygonFeatures);
-            }
-            map.setLayoutProperty(borderLayerId, 'visibility', layer.visible ? 'visible' : 'none');
-          }
+        addOrUpdateLayer(borderLayerId, 'line', borderLayerId, {
+          'line-color': '#009900', // Darker border color
+          'line-width': 2
         });
-      });
-    }
-  };
+      }
+    });
+  });
+};
+
   
   return (
     <div className="relative">
