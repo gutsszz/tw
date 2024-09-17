@@ -246,33 +246,7 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
       }
     });
   
-    const popup = new mapboxgl.Popup({
-      closeButton: true,
-      closeOnClick: true,
-      offset: [0, -10]
-    });
     
-    const handlePopup = (e) => {
-      const feature = e.features[0];
-      const coordinates = e.lngLat;
-      const area = parseFloat(feature.properties.area);
-      const displayArea = isNaN(area) ? "Area's information not available" : `${area.toFixed(2)} m²`;
-    
-      const popupHTML = `
-        <div style="text-align: center;">
-          <p><strong>Area:</strong> ${displayArea}</p>
-        </div>
-      `;
-    
-      popup
-        .setLngLat(coordinates)
-        .setHTML(popupHTML)
-        .addTo(map);
-    };
-    
-    layersToUpdate.polygons.forEach(polygonLayerId => {
-      map.on('click', polygonLayerId, handlePopup);
-    });
     
   
   }, [layers, mapLoaded]);
