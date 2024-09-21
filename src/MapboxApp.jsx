@@ -5,9 +5,13 @@ import { db } from './firebase';
 import { doc, collection, onSnapshot, setDoc, deleteDoc } from "firebase/firestore";
 import './App.css';
 import Topbar from './Topbar';
+import WmsFetcher from './WmsFetcher';
+
 
 const MapboxApp = () => {
   const [layers, setLayers] = useState([]);
+  const [tiffLayers, setTiffLayers] = useState([]);
+  const [wmsUrl, setWmsUrl] = useState(null);
   const [selectedLayerId, setSelectedLayerId] = useState('');
   const [zoomToLayerId, setZoomToLayerId] = useState(null);
 
@@ -33,6 +37,22 @@ const MapboxApp = () => {
     };
     
     setLayers(prevLayers => [...prevLayers, newLayer]);
+  };
+
+  const handleTiffUpload = (file) => {
+    const tiffName = file.name.split('.').slice(0, -1).join('.');
+    const existingLayer = tiffLayers.find(layer => layer.name === tiffName);
+    if (existingLayer) {
+      console.error('Layer with this name already exists');
+      return;
+    }
+
+    const newTiffLayer = {
+      name: tiffName,
+      file: file
+    };
+
+    setTiffLayers(prev => [...prev, newTiffLayer]);
   };
 
   const handleSaveLayer = async () => {
@@ -113,26 +133,35 @@ const MapboxApp = () => {
     }
   };
 
+  const handleFetchWmsUrl = (url) => {
+    setWmsUrl(url);
+  };
+
   useEffect(() => {
     fetchSavedLayers();
   }, []);
 
+
   return (
     <>
+          <WmsFetcher onFetchWmsUrl={handleFetchWmsUrl} /> {/* Fetch WMS URL */}
+
       <Topbar/>
 
     <div className="flex">
       <Sidebar 
         onGeoJsonUpload={handleGeoJsonUpload} 
         layers={layers}
+        tiffLayers={tiffLayers}
+
         onToggleLayer={handleToggleLayer}
         onSaveLayer={handleSaveLayer}
         onDeleteLayer={handleDeleteLayer}
         setSelectedLayerId={setSelectedLayerId}
         handleClickZoom={handleClickZoom}
       />
-      <MapboxMap layers={layers} zoomid={zoomToLayerId}  setZoom={setZoomToLayerId} />
-    </div>
+        <MapboxMap layers={layers} zoomid={zoomToLayerId} setZoom={setZoomToLayerId} wmsUrl={wmsUrl} />
+        </div>
     </>
   );
 };

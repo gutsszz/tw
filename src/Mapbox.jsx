@@ -5,7 +5,7 @@ import ThemeSelector from './ThemeSwitcher';
 
 mapboxgl.accessToken = 'pk.eyJ1IjoidGFsaGF3YXFxYXMxNCIsImEiOiJjbHBreHhscWEwMWU4MnFyenU3ODdmeTdsIn0.8IlEgMNGcbx806t363hDJg';
 
-const MapboxMap = ({ layers,zoomid,setZoom}) => {
+const MapboxMap = ({ layers, wmsUrl, zoomid, setZoom }) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -274,6 +274,8 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
       map.on('click', polygonLayerId, handlePopup);
     });
     
+
+    
   
   }, [layers, mapLoaded]);
   
@@ -409,6 +411,7 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
     });
   });
 };
+
 
   
   return (
