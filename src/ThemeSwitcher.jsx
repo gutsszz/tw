@@ -1,14 +1,13 @@
 import { useState } from 'react';
-import { FaChevronDown } from 'react-icons/fa'; // Dropdown arrow icon
-
+import { FaChevronDown } from 'react-icons/fa'; 
 const ThemeSelector = ({ onThemeChange }) => {
-  const [isOpen, setIsOpen] = useState(false); // Control dropdown open/close state
+  const [isOpen, setIsOpen] = useState(false); 
   const [selectedTheme, setSelectedTheme] = useState('streets-v11'); // Default theme
 
   const handleChange = (theme) => {
-    setSelectedTheme(theme); // Update selected theme
-    onThemeChange(theme); // Call parent function to change the map style
-    setIsOpen(false); // Close dropdown after selection
+    setSelectedTheme(theme); 
+    onThemeChange(theme); 
+    setIsOpen(false); 
   };
 
   const themes = [

@@ -123,7 +123,8 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid}) => {
   const boundsMapping = {
     '0': [[9.1138091, 48.3772241], [9.1239029, 48.3824140]], // Bounds for raster-layer-1
     '1': [[9.2970292, 47.7158867], [9.3093572, 47.7258356]], // Bounds for raster-layer-2
-    '2': [[9.1138093, 48.3772243], [9.1239031, 48.3824142]], // Bounds for raster-layer-3
+    '2': [[9.2804, 45.6119], [9.2979, 45.6320]], // Bounds for raster-layer-3
+    
   };
   
 
@@ -177,6 +178,10 @@ const rasterLayers = [
   { id: 'raster-layer-3', url: 'mapbox://talhawaqqas14.forest2' },
   { id: 'raster-layer-4', url: 'mapbox://talhawaqqas14.forest3' },
   { id: 'raster-layer-5', url: 'mapbox://talhawaqqas14.forest4' },
+  { id: 'raster-layer-6', url: 'mapbox://talhawaqqas14.auto1' },
+  { id: 'raster-layer-7', url: 'mapbox://talhawaqqas14.auto2' },
+  { id: 'raster-layer-8', url: 'mapbox://yamamah11.auto_3' },
+  { id: 'raster-layer-9', url: 'mapbox://yamamah11.auto_4' },
 ];
 
 rasterLayers.forEach(layer => {
@@ -187,7 +192,7 @@ rasterLayers.forEach(layer => {
     map.addSource(id, {
       type: 'raster',
       url: url,
-      tileSize: 256,
+      tileSize: 512,
     });
   }
 

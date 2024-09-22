@@ -1,7 +1,6 @@
 import { useState, useRef } from 'react';
 import { EyeIcon, PlusIcon, TrashIcon, ArrowLeftIcon } from '@heroicons/react/24/outline';
 
-
 const Sidebar = ({ 
   onGeoJsonUpload, 
   layers, 
@@ -17,7 +16,7 @@ const Sidebar = ({
   const [tiffLayers, setTiffLayers] = useState([
     { id: 0, name: 'Eichhalde_MA_Robert_Sommer(1)', file: null, visible: true },
     { id: 1, name: 'Forsteinrichtung.tif', file: null, visible: true },
-  
+    { id: 2, name: 'AutodromoHD.tif', file: null, visible: true },
   ]); // Initial dummy TIFF layers with ids
   const fileInputRef = useRef(null);
 
@@ -36,22 +35,6 @@ const Sidebar = ({
             const tiffName = file.name.split('.').slice(0, -1).join('.');
             const newId = tiffLayers.length + 1; // Create a new unique ID for the TIFF layer
             setTiffLayers(prev => [...prev, { id: newId, name: tiffName, file, visible: true }]);
-
-            // Send the TIFF file to the backend
-            const formData = new FormData();
-            formData.append('tiffFile', file);
-
-            axios.post('http://localhost:5000/upload', formData, {
-              headers: {
-                'Content-Type': 'multipart/form-data',
-              },
-            })
-            .then(response => {
-              console.log('TIFF file uploaded successfully:', response.data);
-            })
-            .catch(error => {
-              console.error('Error uploading TIFF file:', error);
-            });
           }
           event.target.value = ''; // Clear file input after upload
         } catch (error) {
