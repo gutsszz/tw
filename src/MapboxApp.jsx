@@ -11,27 +11,45 @@ const MapboxApp = () => {
   const [selectedLayerId, setSelectedLayerId] = useState('');
   const [zoomToLayerId, setZoomToLayerId] = useState(null);
   const [Rasterzoomid, setRasterzoomid] = useState(null);
- 
-
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [converted, setConverted] = useState(false);
 
 
 
   const geoJsonFiles = {
     '1': '/Forsteinrichtung_Current.geojson',
-    // '1': 'path/to/AnotherGeoJson.geojson',
-    // '2': 'path/to/YetAnotherGeoJson.geojson',
   };
-
 
   const loadGeoJson = async (filePath) => {
     try {
       const response = await fetch(filePath);
       const geojson = await response.json();
-      handleGeoJsonUpload(geojson, `Loaded from ${filePath}`); // Adjust the name as needed
+      
+      // Open the notification and start loading
+      setIsNotificationOpen(true);
+      setProgress(0);
+      setConverted(false);
+
+      const interval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 100) {
+            clearInterval(interval);
+            setConverted(true); // Indicate completion
+            return 100; // Ensure progress is capped at 100
+          }
+          return prev + 10; // Increment progress
+        });
+      }, 1000);
+
+      await new Promise((resolve) => setTimeout(resolve, 10000));
+      handleGeoJsonUpload(geojson, filePath); // Handle the upload
     } catch (error) {
       console.error("Error loading GeoJSON:", error);
+      setIsNotificationOpen(false); // Close on error
     }
   };
+  
   const handleToggleLayer = (id) => {
     setLayers(layers.map(layer =>
       layer.id === id ? { ...layer, visible: !layer.visible } : layer
@@ -72,6 +90,7 @@ function getairequest(id){
     };
     
     setLayers(prevLayers => [...prevLayers, newLayer]);
+    setConverted(true); // Indicate completion
   };
 
   const handleSaveLayer = async () => {
@@ -163,21 +182,25 @@ setRasterzoomid(id);
 
   return (
     <>
-      <Topbar/>
-
-    <div className="flex">
-      <Sidebar 
-        onGeoJsonUpload={handleGeoJsonUpload} 
-        layers={layers}
-        onToggleLayer={handleToggleLayer}
-        onSaveLayer={handleSaveLayer}
-        onDeleteLayer={handleDeleteLayer}
-        setSelectedLayerId={setSelectedLayerId}
-        handleClickZoom={handleClickZoom}
-        handleRasterZoom={handleRasterZoom}
+      <Topbar
+        isNotificationOpen={isNotificationOpen}
+        progress={progress}
+        converted={converted}
+        setIsNotificationOpen={setIsNotificationOpen}
       />
-      <MapboxMap layers={layers} zoomid={zoomToLayerId}  setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid} getairequest={getairequest} setRasterzoomid={setRasterzoomid}d  />
-    </div>
+      <div className="flex">
+        <Sidebar 
+          onGeoJsonUpload={handleGeoJsonUpload} 
+          layers={layers}
+          onToggleLayer={handleToggleLayer}
+          onSaveLayer={handleSaveLayer}
+          onDeleteLayer={handleDeleteLayer}
+          setSelectedLayerId={setSelectedLayerId}
+          handleClickZoom={handleClickZoom}
+          handleRasterZoom={handleRasterZoom}
+        />
+        <MapboxMap layers={layers} zoomid={zoomToLayerId} setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid} getairequest={getairequest} setRasterzoomid={setRasterzoomid} />
+      </div>
     </>
   );
 };

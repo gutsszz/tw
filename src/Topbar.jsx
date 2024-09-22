@@ -1,40 +1,61 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faBell, faUser } from '@fortawesome/free-solid-svg-icons';
-import logo from './logo-1.png'; // Replace with the actual path to your PNG image
+import { faBell, faUser, faCheckCircle, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
+import logo from './logo-1.png'; // Replace with your logo path
 
-const TopBar = () => {
+const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen }) => {
+  const handleNotificationClick = () => {
+    setIsNotificationOpen((prev) => !prev);
+  };
+
   return (
-    <div className="bg-gray-100 text-gray-800 p-2 flex items-center justify-between shadow-md w-full fixed top-0 left-0 z-30 border-b border-gray-300"> {/* Changed border-gray-500 to border-gray-300 */}
-      {/* Logo Section */}
+    <div className="bg-white text-gray-900 py-2 px-4 flex items-center justify-between shadow-md w-full fixed top-0 left-0 z-40 border-b border-gray-200">
       <div className="flex items-center">
         <a href="/" className="flex items-center hover:text-gray-600 transition duration-300">
-          <img
-            src={logo}
-            alt="Logo"
-            className="h-10 w-auto" // Ensure this size is kept
-          />
+          <img src={logo} alt="Logo" className="h-10 w-auto" />
         </a>
       </div>
-      
-      {/* Centered Search Bar Section */}
-      <div className="flex-grow flex justify-center mx-4"> {/* Flex container to center search bar */}
-        <div className="relative flex-grow max-w-sm"> {/* Adjusted max-w-sm for a smaller search bar */}
+
+      <div className="flex-grow flex justify-center mx-4">
+        <div className="relative flex-grow max-w-md">
           <input
             type="text"
             placeholder="Search..."
-            className="w-full p-1 pl-8 rounded-md bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder-gray-500 transition duration-300 shadow-sm"
+            className="w-full p-2 pl-10 rounded-lg bg-gray-50 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-300"
           />
-          <button className="absolute left-0 top-1/2 transform -translate-y-1/2 pl-2 text-gray-500 hover:text-gray-700 transition duration-300">
-            <FontAwesomeIcon icon={faSearch} />
-          </button>
         </div>
       </div>
 
-      {/* Icons Section */}
-      <div className="flex items-center space-x-3">
-        <button className="p-2 text-gray-600 hover:text-gray-800 transition duration-300">
+      <div className="flex items-center space-x-4">
+        <button
+          className="relative p-2 text-gray-600 hover:text-gray-800 transition duration-300"
+          onClick={handleNotificationClick}
+        >
           <FontAwesomeIcon icon={faBell} />
+          {isNotificationOpen && (
+            <div className="absolute right-0 mt-2 w-72 bg-white border border-gray-300 shadow-lg rounded-lg p-4 z-50">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-gray-700">Notification</span>
+                {converted ? (
+                  <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
+                ) : (
+                  <FontAwesomeIcon icon={faSyncAlt} className="text-blue-500 animate-spin" />
+                )}
+              </div>
+
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  style={{ width: `${progress}%` }}
+                  className="h-full bg-gradient-to-r from-blue-400 to-indigo-600 transition-all duration-500"
+                ></div>
+              </div>
+
+              <div className="text-xs text-gray-600 text-center mt-2">
+                {converted ? 'Conversion Complete!' : `Processing... ${progress}%`}
+              </div>
+            </div>
+          )}
         </button>
+
         <button className="p-2 text-gray-600 hover:text-gray-800 transition duration-300">
           <FontAwesomeIcon icon={faUser} />
         </button>
