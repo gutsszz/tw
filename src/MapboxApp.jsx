@@ -17,7 +17,7 @@ const MapboxApp = () => {
 
 
   const geoJsonFiles = {
-    '1': 'Forsteinrichtung_Current.geojson',
+    '1': '/Forsteinrichtung_Current.geojson',
     // '1': 'path/to/AnotherGeoJson.geojson',
     // '2': 'path/to/YetAnotherGeoJson.geojson',
   };
