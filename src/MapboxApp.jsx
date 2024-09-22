@@ -11,12 +11,50 @@ const MapboxApp = () => {
   const [selectedLayerId, setSelectedLayerId] = useState('');
   const [zoomToLayerId, setZoomToLayerId] = useState(null);
   const [Rasterzoomid, setRasterzoomid] = useState(null);
+ 
 
+
+
+
+  const geoJsonFiles = {
+    '1': 'Forsteinrichtung_Current.geojson',
+    // '1': 'path/to/AnotherGeoJson.geojson',
+    // '2': 'path/to/YetAnotherGeoJson.geojson',
+  };
+
+
+  const loadGeoJson = async (filePath) => {
+    try {
+      const response = await fetch(filePath);
+      const geojson = await response.json();
+      handleGeoJsonUpload(geojson, `Loaded from ${filePath}`); // Adjust the name as needed
+    } catch (error) {
+      console.error("Error loading GeoJSON:", error);
+    }
+  };
   const handleToggleLayer = (id) => {
     setLayers(layers.map(layer =>
       layer.id === id ? { ...layer, visible: !layer.visible } : layer
     ));
   };
+
+
+
+function getairequest(id){
+
+    const geojsonFile = geoJsonFiles[id];
+    if (geojsonFile) {
+      loadGeoJson(geojsonFile);
+      console.log("geojson id" + id);
+      
+    } else {
+      console.log("No corresponding GeoJSON file found for this layerId");
+    }
+
+  }
+
+
+  
 
   const handleGeoJsonUpload = (geojson, name) => {
     const existingLayer = layers.find(layer => layer.name === name);
@@ -138,7 +176,7 @@ setRasterzoomid(id);
         handleClickZoom={handleClickZoom}
         handleRasterZoom={handleRasterZoom}
       />
-      <MapboxMap layers={layers} zoomid={zoomToLayerId}  setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid} />
+      <MapboxMap layers={layers} zoomid={zoomToLayerId}  setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid} getairequest={getairequest} setRasterzoomid={setRasterzoomid}d  />
     </div>
     </>
   );

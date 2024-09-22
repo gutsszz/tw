@@ -14,7 +14,7 @@ const Sidebar = ({
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('geojson'); // State to toggle sections
   const [tiffLayers, setTiffLayers] = useState([
-    { id: 0, name: 'Eichhalde_MA_Robert_Sommer(1)', file: null, visible: true },
+    { id: 0, name: 'Eichhalde_MA_Robert_Sommer', file: null, visible: true },
     { id: 1, name: 'Forsteinrichtung.tif', file: null, visible: true },
     { id: 2, name: 'AutodromoHD.tif', file: null, visible: true },
   ]); // Initial dummy TIFF layers with ids

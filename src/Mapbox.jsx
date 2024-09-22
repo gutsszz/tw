@@ -5,7 +5,7 @@ import ThemeSelector from './ThemeSwitcher';
 
 mapboxgl.accessToken = 'pk.eyJ1IjoidGFsaGF3YXFxYXMxNCIsImEiOiJjbHBreHhscWEwMWU4MnFyenU3ODdmeTdsIn0.8IlEgMNGcbx806t363hDJg';
 
-const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid}) => {
+const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,getairequest,setRasterzoomid}) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -138,12 +138,12 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid}) => {
         padding: { top: 10, bottom: 10, left: 10, right: 10 },
         maxZoom: 15,
         duration:1
-      });
+      }); 
+      setRasterzoomid(null);
     }
   }, [Rasterzoomid]); // Runs whenever Rasterzoomid changes
   
   
-
   const updateMapLayers = useCallback(() => {
     if (!mapLoaded) return;
   
@@ -169,54 +169,49 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid}) => {
       }
     });
   
-// Define bounds for specific raster IDs
-
-// Handle raster layers
-const rasterLayers = [
-  { id: 'raster-layer-1', url: 'mapbox://talhawaqqas14.new' },
-  { id: 'raster-layer-2', url: 'mapbox://talhawaqqas14.bigforest1' },
-  { id: 'raster-layer-3', url: 'mapbox://talhawaqqas14.forest2' },
-  { id: 'raster-layer-4', url: 'mapbox://talhawaqqas14.forest3' },
-  { id: 'raster-layer-5', url: 'mapbox://talhawaqqas14.forest4' },
-  { id: 'raster-layer-6', url: 'mapbox://talhawaqqas14.auto1' },
-  { id: 'raster-layer-7', url: 'mapbox://talhawaqqas14.auto2' },
-  { id: 'raster-layer-8', url: 'mapbox://yamamah11.auto_3' },
-  { id: 'raster-layer-9', url: 'mapbox://yamamah11.auto_4' },
-];
-
-rasterLayers.forEach(layer => {
-  const { id, url } = layer;
-
-  // Add source if it doesn't exist
-  if (!map.getSource(id)) {
-    map.addSource(id, {
-      type: 'raster',
-      url: url,
-      tileSize: 512,
+    // Define raster layers
+    const rasterLayers = [
+      { id: 'raster-layer-1', url: 'mapbox://talhawaqqas14.new' },
+      { id: 'raster-layer-2', url: 'mapbox://talhawaqqas14.bigforest1' },
+      { id: 'raster-layer-3', url: 'mapbox://talhawaqqas14.forest2' },
+      { id: 'raster-layer-4', url: 'mapbox://talhawaqqas14.forest3' },
+      { id: 'raster-layer-5', url: 'mapbox://talhawaqqas14.forest4' },
+      { id: 'raster-layer-6', url: 'mapbox://talhawaqqas14.auto1' },
+      { id: 'raster-layer-7', url: 'mapbox://talhawaqqas14.auto2' },
+      { id: 'raster-layer-8', url: 'mapbox://yamamah11.auto_3' },
+      { id: 'raster-layer-9', url: 'mapbox://yamamah11.auto_4' },
+    ];
+  
+    rasterLayers.forEach(layer => {
+      const { id, url } = layer;
+  
+      // Add source if it doesn't exist
+      if (!map.getSource(id)) {
+        map.addSource(id, {
+          type: 'raster',
+          url: url,
+          tileSize: 512,
+        });
+      }
+  
+      // Add layer if it doesn't exist
+      if (!map.getLayer(id)) {
+        map.addLayer({
+          id: id,
+          type: 'raster',
+          source: id,
+          layout: {},
+          paint: {}
+        });
+      }
     });
-  }
-
-  // Add layer if it doesn't exist
-  if (!map.getLayer(id)) {
-    map.addLayer({
-      id: id,
-      type: 'raster',
-      source: id,
-      layout: {},
-      paint: {}
-    });
-  }
-});
-
-// Function to handle zooming based on rasterZoomId prop
-
+  
     const layersToUpdate = {
       points: [],
       lines: [],
       polygons: []
     };
   
-    // Function to get or create a source
     const getOrCreateSource = (sourceId, data) => {
       if (!map.getSource(sourceId)) {
         map.addSource(sourceId, {
@@ -228,7 +223,6 @@ rasterLayers.forEach(layer => {
       }
     };
   
-    // Function to get or create a layer
     const getOrCreateLayer = (layerId, layerType, sourceId, paintOptions, visibility) => {
       if (!map.getLayer(layerId)) {
         map.addLayer({
@@ -244,7 +238,6 @@ rasterLayers.forEach(layer => {
         for (const [key, value] of Object.entries(paintOptions)) {
           map.setPaintProperty(layerId, key, value);
         }
-        // Update visibility dynamically
         map.setLayoutProperty(layerId, 'visibility', visibility ? 'visible' : 'none');
       }
     };
@@ -314,41 +307,77 @@ rasterLayers.forEach(layer => {
         layersToUpdate.polygons.push(borderLayerId);
       }
     });
-  
-    const popup = new mapboxgl.Popup({
-      closeButton: true,
-      closeOnClick: true,
-      offset: [0, -10]
-    });
-  
-    const handlePopup = (e) => {
-      const feature = e.features[0];
-      const coordinates = e.lngLat;
-      const area = parseFloat(feature.properties.area);
-      const displayArea = isNaN(area) ? "Area's information not available" : `${area.toFixed(2)} m²`;
-  
+  const popup = new mapboxgl.Popup({
+  closeButton: true,
+  closeOnClick: true,
+  offset: [0, -10]
+});
+
+// Handle clicks on the map for bounds
+const handleClick = (e) => {
+  const coordinates = e.lngLat;
+
+  // Check if click is within any defined bounds
+  let isRasterPopup = false;
+  Object.entries(boundsMapping).forEach(([key, bound]) => {
+    const [[lon1, lat1], [lon2, lat2]] = bound;
+    if (coordinates.lng >= lon1 && coordinates.lng <= lon2 && coordinates.lat >= lat1 && coordinates.lat <= lat2) {
       const popupHTML = `
-        <div style="text-align: center;">
-          <p><strong>Area:</strong> ${displayArea}</p>
+        <div style="text-align: center; padding: 10px; border-radius: 5px; background-color: rgba(255, 255, 255, 0.9);">
+          <p style="margin: 5px 0;">Layer ID: ${key}</p>
+          <button style="padding: 5px 10px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;" onclick="sendToAI('${key}', ${coordinates.lng}, ${coordinates.lat})">Send to AI</button>
         </div>
       `;
-  
-      popup
-        .setLngLat(coordinates)
-        .setHTML(popupHTML)
-        .addTo(map);
-    };
-  
-    layersToUpdate.polygons.forEach(polygonLayerId => {
-      map.on('click', polygonLayerId, handlePopup);
+      popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+      isRasterPopup = true; // Mark that a raster popup is displayed
+    }
+  });
+
+  // Handle other layer clicks (GeoJSON)
+  if (!isRasterPopup) {
+    const features = map.queryRenderedFeatures(e.point);
+    features.forEach(feature => {
+      if (feature.layer.id.startsWith('geojson-layer-')) {
+        const area = parseFloat(feature.properties.area);
+        const displayArea = isNaN(area) ? "Area's information not available" : `${area.toFixed(2)} m²`;
+
+        const popupHTML = `
+          <div style="text-align: center; padding: 10px; border-radius: 5px; background-color: rgba(255, 255, 255, 0.9);">
+            <p style="margin: 0; font-weight: bold;">Area Info:</p>
+            <p style="margin: 5px 0;">Area: ${displayArea}</p>
+          </div>
+        `;
+        popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
+      }
     });
-  
+  }
+};
+
+// Function to handle the AI button click
+function sendToAI(layerId, lng, lat) {
+  console.log(`Sending data for Layer ID: ${layerId} to AI...`);
+  getairequest(layerId);
+
+  // Close the current popup
+  popup.remove();
+
+  // Optionally, you can log a message or perform any other action here
+  console.log(`Data sent for Layer ID: ${layerId}`);
+}
+
+// Attach the sendToAI function to the global window object
+window.sendToAI = sendToAI;
+
+// Attach click event to the map
+map.on('click', handleClick);
+
+    
   }, [layers, mapLoaded]);
   
   useEffect(() => {
     updateMapLayers();
   }, [updateMapLayers]);
-  
+    
 
   const handleThemeChange = (newTheme) => {
     if (!mapRef.current) return;
