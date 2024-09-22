@@ -10,6 +10,7 @@ const MapboxApp = () => {
   const [layers, setLayers] = useState([]);
   const [selectedLayerId, setSelectedLayerId] = useState('');
   const [zoomToLayerId, setZoomToLayerId] = useState(null);
+  const [Rasterzoomid, setRasterzoomid] = useState(null);
 
   const handleToggleLayer = (id) => {
     setLayers(layers.map(layer =>
@@ -61,6 +62,11 @@ const MapboxApp = () => {
       console.error("Error saving layer:", error);
     }
   };
+
+
+ function handleRasterZoom(id) {
+setRasterzoomid(id);
+ }
 
 
   const handleClickZoom = (layerId) => {
@@ -130,8 +136,9 @@ const MapboxApp = () => {
         onDeleteLayer={handleDeleteLayer}
         setSelectedLayerId={setSelectedLayerId}
         handleClickZoom={handleClickZoom}
+        handleRasterZoom={handleRasterZoom}
       />
-      <MapboxMap layers={layers} zoomid={zoomToLayerId}  setZoom={setZoomToLayerId} />
+      <MapboxMap layers={layers} zoomid={zoomToLayerId}  setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid} />
     </div>
     </>
   );

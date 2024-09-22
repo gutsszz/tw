@@ -5,7 +5,7 @@ import ThemeSelector from './ThemeSwitcher';
 
 mapboxgl.accessToken = 'pk.eyJ1IjoidGFsaGF3YXFxYXMxNCIsImEiOiJjbHBreHhscWEwMWU4MnFyenU3ODdmeTdsIn0.8IlEgMNGcbx806t363hDJg';
 
-const MapboxMap = ({ layers,zoomid,setZoom}) => {
+const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid}) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
@@ -119,6 +119,30 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
   
   
   }, [zoomid]);
+
+  const boundsMapping = {
+    '0': [[9.1138091, 48.3772241], [9.1239029, 48.3824140]], // Bounds for raster-layer-1
+    '1': [[9.2970292, 47.7158867], [9.3093572, 47.7258356]], // Bounds for raster-layer-2
+    '2': [[9.1138093, 48.3772243], [9.1239031, 48.3824142]], // Bounds for raster-layer-3
+  };
+  
+
+  useEffect(() => { if (!mapLoaded) return;
+  
+    const map = mapRef.current;
+    if (!map) return;
+    const bounds = boundsMapping[Rasterzoomid];
+    if (bounds) {
+      map.fitBounds(bounds, {
+        padding: { top: 10, bottom: 10, left: 10, right: 10 },
+        maxZoom: 15,
+        duration:1
+      });
+    }
+  }, [Rasterzoomid]); // Runs whenever Rasterzoomid changes
+  
+  
+
   const updateMapLayers = useCallback(() => {
     if (!mapLoaded) return;
   
@@ -130,17 +154,57 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
       `geojson-layer-${layer.id}-points`,
       `geojson-layer-${layer.id}-lines`,
       `geojson-layer-${layer.id}-polygons`,
-      `geojson-layer-${layer.id}-border`
+      `geojson-layer-${layer.id}-border`,
+      `raster-layer-${layer.id}` // Add raster layer IDs to this set
     ]));
   
     map.getStyle().layers.forEach(layer => {
       if (layer.id.startsWith('geojson-layer-') && !currentLayerIds.has(layer.id)) {
         map.removeLayer(layer.id);
         map.removeSource(layer.id);
+      } else if (layer.id.startsWith('raster-layer-') && !currentLayerIds.has(layer.id)) {
+        map.removeLayer(layer.id);
+        map.removeSource(layer.id);
       }
     });
   
-    // Add or update layers based on current state
+// Define bounds for specific raster IDs
+
+// Handle raster layers
+const rasterLayers = [
+  { id: 'raster-layer-1', url: 'mapbox://talhawaqqas14.new' },
+  { id: 'raster-layer-2', url: 'mapbox://talhawaqqas14.bigforest1' },
+  { id: 'raster-layer-3', url: 'mapbox://talhawaqqas14.forest2' },
+  { id: 'raster-layer-4', url: 'mapbox://talhawaqqas14.forest3' },
+  { id: 'raster-layer-5', url: 'mapbox://talhawaqqas14.forest4' },
+];
+
+rasterLayers.forEach(layer => {
+  const { id, url } = layer;
+
+  // Add source if it doesn't exist
+  if (!map.getSource(id)) {
+    map.addSource(id, {
+      type: 'raster',
+      url: url,
+      tileSize: 256,
+    });
+  }
+
+  // Add layer if it doesn't exist
+  if (!map.getLayer(id)) {
+    map.addLayer({
+      id: id,
+      type: 'raster',
+      source: id,
+      layout: {},
+      paint: {}
+    });
+  }
+});
+
+// Function to handle zooming based on rasterZoomId prop
+
     const layersToUpdate = {
       points: [],
       lines: [],
@@ -168,7 +232,7 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
           source: sourceId,
           paint: paintOptions,
           layout: {
-            visibility: visibility ? 'visible' : 'none' // Control visibility here
+            visibility: visibility ? 'visible' : 'none'
           }
         });
       } else {
@@ -201,7 +265,7 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
           feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')
       };
   
-      const visibility = layer.visible; // Get visibility from the layer
+      const visibility = layer.visible;
   
       // Handle Points
       if (pointFeatures.features.length > 0) {
@@ -251,29 +315,28 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
       closeOnClick: true,
       offset: [0, -10]
     });
-    
+  
     const handlePopup = (e) => {
       const feature = e.features[0];
       const coordinates = e.lngLat;
       const area = parseFloat(feature.properties.area);
       const displayArea = isNaN(area) ? "Area's information not available" : `${area.toFixed(2)} m²`;
-    
+  
       const popupHTML = `
         <div style="text-align: center;">
           <p><strong>Area:</strong> ${displayArea}</p>
         </div>
       `;
-    
+  
       popup
         .setLngLat(coordinates)
         .setHTML(popupHTML)
         .addTo(map);
     };
-    
+  
     layersToUpdate.polygons.forEach(polygonLayerId => {
       map.on('click', polygonLayerId, handlePopup);
     });
-    
   
   }, [layers, mapLoaded]);
   
@@ -281,135 +344,20 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
     updateMapLayers();
   }, [updateMapLayers]);
   
-  
 
-  
   const handleThemeChange = (newTheme) => {
-  if (!mapRef.current) return;
-
-  const map = mapRef.current;
-
-  // Save the current layers and sources
-  const existingLayers = layers.map(layer => ({
-    id: `geojson-layer-${layer.id}`,
-    data: layer.data,
-    visible: layer.visible
-  }));
-
-  // Set the new theme
-  map.setStyle(`mapbox://styles/mapbox/${newTheme}`);
-
-  // Once the new style is loaded, re-add the layers and sources
-  map.once('styledata', () => {
-    existingLayers.forEach(layer => {
-      const { id: baseLayerId, data, visible } = layer;
-
-      const pointFeatures = {
-        type: "FeatureCollection",
-        features: data.features.filter(feature => feature.geometry.type === "Point")
-      };
-
-      const lineStringFeatures = {
-        type: "FeatureCollection",
-        features: data.features.filter(feature =>
-          feature.geometry.type === "LineString" || feature.geometry.type === "MultiLineString")
-      };
-
-      const polygonFeatures = {
-        type: "FeatureCollection",
-        features: data.features.filter(feature =>
-          feature.geometry.type === "Polygon" || feature.geometry.type === "MultiPolygon")
-      };
-
-      // Utility function to add or update a layer
-      const addOrUpdateLayer = (layerId, layerType, sourceId, paintOptions) => {
-        if (!map.getLayer(layerId)) {
-          map.addLayer({
-            id: layerId,
-            type: layerType,
-            source: sourceId,
-            paint: paintOptions
-          });
-        } else {
-          // Update the paint properties if the layer already exists
-          Object.entries(paintOptions).forEach(([key, value]) => {
-            map.setPaintProperty(layerId, key, value);
-          });
-        }
-        map.setLayoutProperty(layerId, 'visibility', visible ? 'visible' : 'none');
-      };
-
-      // Handle Points
-      if (pointFeatures.features.length > 0) {
-        const pointLayerId = `${baseLayerId}-points`;
-        if (!map.getSource(pointLayerId)) {
-          map.addSource(pointLayerId, {
-            type: 'geojson',
-            data: pointFeatures
-          });
-        } else {
-          map.getSource(pointLayerId).setData(pointFeatures);
-        }
-        addOrUpdateLayer(pointLayerId, 'circle', pointLayerId, {
-          'circle-color': '#FF0000',
-          'circle-radius': 5
-        });
-      }
-
-      // Handle LineStrings
-      if (lineStringFeatures.features.length > 0) {
-        const lineLayerId = `${baseLayerId}-lines`;
-        if (!map.getSource(lineLayerId)) {
-          map.addSource(lineLayerId, {
-            type: 'geojson',
-            data: lineStringFeatures
-          });
-        } else {
-          map.getSource(lineLayerId).setData(lineStringFeatures);
-        }
-        addOrUpdateLayer(lineLayerId, 'line', lineLayerId, {
-          'line-color': '#0000FF',
-          'line-width': 2
-        });
-      }
-
-      // Handle Polygons
-      if (polygonFeatures.features.length > 0) {
-        const polygonLayerId = `${baseLayerId}-polygons`;
-        const borderLayerId = `${baseLayerId}-border`;
-
-        // Add or update polygon layer
-        if (!map.getSource(polygonLayerId)) {
-          map.addSource(polygonLayerId, {
-            type: 'geojson',
-            data: polygonFeatures
-          });
-        } else {
-          map.getSource(polygonLayerId).setData(polygonFeatures);
-        }
-        addOrUpdateLayer(polygonLayerId, 'fill', polygonLayerId, {
-          'fill-color': '#00FF00',
-          'fill-opacity': 0.35
-        });
-
-        // Add or update border layer
-        if (!map.getSource(borderLayerId)) {
-          map.addSource(borderLayerId, {
-            type: 'geojson',
-            data: polygonFeatures
-          });
-        } else {
-          map.getSource(borderLayerId).setData(polygonFeatures);
-        }
-        addOrUpdateLayer(borderLayerId, 'line', borderLayerId, {
-          'line-color': '#009900', // Darker border color
-          'line-width': 2
-        });
-      }
-    });
-  });
-};
-
+    if (!mapRef.current) return;
+  
+    const map = mapRef.current;
+  
+    // Set the new theme
+    map.setStyle(`mapbox://styles/mapbox/${newTheme}`);
+  
+    // Once the new style is loaded, re-add the layers and sources
+    map.once('styledata', () => {
+      updateMapLayers(); // Correctly placed inside the callback
+    }); // Moved this closing parenthesis to the correct position
+  };
   
   return (
     <div className="relative">
@@ -417,6 +365,6 @@ const MapboxMap = ({ layers,zoomid,setZoom}) => {
       <ThemeSelector onThemeChange={handleThemeChange} /> {/* Add the ThemeSelector */}
     </div>
   );
-};
+}
 
-export default MapboxMap;
+export default MapboxMap;  
