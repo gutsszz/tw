@@ -15,22 +15,26 @@ const MapboxApp = () => {
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false); // New state for upload status
   const [converted, setConverted] = useState(false);
-
   const geoJsonFiles = {
+    '0': '/Eichhalde_Sommer_results.geojson',
     '1': '/Forsteinrichtung_Current.geojson',
+    '2': '/forset.geojson',
   };
-
+  
   const loadGeoJson = async (filePath) => {
     try {
       const response = await fetch(filePath);
       const geojson = await response.json();
-
+  
+      // Extract the name from the file path (remove slashes and .geojson extension)
+      const fileName = filePath.split('/').pop().replace('.geojson', '');
+  
       // Open the notification and start loading
       setIsNotificationOpen(true);
       setProgress(0);
       setConverted(false);
       setIsUploading(true); // Set uploading to true
-
+  
       // Simulate progress
       const interval = setInterval(() => {
         setProgress((prev) => {
@@ -41,13 +45,13 @@ const MapboxApp = () => {
           return prev + 10; // Increment progress
         });
       }, 1000);
-
+  
       // Simulate processing time
       await new Promise((resolve) => setTimeout(resolve, 10000));
-
-      // Handle the GeoJSON upload
-      handleGeoJsonUpload(geojson, 'Forsteinrichtung_Current'); 
-
+  
+      // Handle the GeoJSON upload, passing the dynamic file name
+      handleGeoJsonUpload(geojson, fileName);
+  
       // Mark as converted and close notification after a short delay
       setConverted(true);
       setIsUploading(false); // Set uploading to false after completion
@@ -59,7 +63,7 @@ const MapboxApp = () => {
       setIsNotificationOpen(false); // Close on error
     }
   };
-
+  
   
   const handleToggleLayer = (id) => {
     setLayers(layers.map(layer =>
