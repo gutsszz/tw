@@ -13,9 +13,8 @@ const MapboxApp = () => {
   const [Rasterzoomid, setRasterzoomid] = useState(null);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false); // New state for upload status
   const [converted, setConverted] = useState(false);
-
-
 
   const geoJsonFiles = {
     '1': '/Forsteinrichtung_Current.geojson',
@@ -25,30 +24,42 @@ const MapboxApp = () => {
     try {
       const response = await fetch(filePath);
       const geojson = await response.json();
-      
+
       // Open the notification and start loading
       setIsNotificationOpen(true);
       setProgress(0);
       setConverted(false);
+      setIsUploading(true); // Set uploading to true
 
+      // Simulate progress
       const interval = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 100) {
             clearInterval(interval);
-            setConverted(true); // Indicate completion
             return 100; // Ensure progress is capped at 100
           }
           return prev + 10; // Increment progress
         });
       }, 1000);
 
+      // Simulate processing time
       await new Promise((resolve) => setTimeout(resolve, 10000));
-      handleGeoJsonUpload(geojson, filePath); // Handle the upload
+
+      // Handle the GeoJSON upload
+      handleGeoJsonUpload(geojson, 'Forsteinrichtung_Current'); 
+
+      // Mark as converted and close notification after a short delay
+      setConverted(true);
+      setIsUploading(false); // Set uploading to false after completion
+      setTimeout(() => {
+        setIsNotificationOpen(false);
+      }, 2000); // Close after 2 seconds
     } catch (error) {
       console.error("Error loading GeoJSON:", error);
       setIsNotificationOpen(false); // Close on error
     }
   };
+
   
   const handleToggleLayer = (id) => {
     setLayers(layers.map(layer =>
@@ -184,9 +195,10 @@ setRasterzoomid(id);
     <>
       <Topbar
         isNotificationOpen={isNotificationOpen}
-        progress={progress}
+        progress={isUploading ? progress : 0} // Show progress only if uploading
         converted={converted}
         setIsNotificationOpen={setIsNotificationOpen}
+        showLoader={isUploading} // Pass the upload status to Topbar
       />
       <div className="flex">
         <Sidebar 

@@ -297,6 +297,7 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,getairequest,setRasterzo
           'fill-color': '#00FF00',
           'fill-opacity': 0.35
         }, visibility);
+        
         layersToUpdate.polygons.push(polygonLayerId);
   
         getOrCreateSource(borderLayerId, polygonFeatures);

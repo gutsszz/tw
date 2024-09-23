@@ -2,7 +2,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBell, faUser, faCheckCircle, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
 import logo from './logo-1.png'; // Replace with your logo path
 
-const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen }) => {
+const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen, showLoader }) => {
   const handleNotificationClick = () => {
     setIsNotificationOpen((prev) => !prev);
   };
@@ -33,25 +33,31 @@ const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen
           <FontAwesomeIcon icon={faBell} />
           {isNotificationOpen && (
             <div className="absolute right-0 mt-2 w-72 bg-white border border-gray-300 shadow-lg rounded-lg p-4 z-50">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-gray-700">Notification</span>
-                {converted ? (
-                  <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
-                ) : (
-                  <FontAwesomeIcon icon={faSyncAlt} className="text-blue-500 animate-spin" />
-                )}
-              </div>
+              {showLoader ? (
+                <>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-sm font-semibold text-gray-700">Notification</span>
+                    {converted ? (
+                      <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
+                    ) : (
+                      <FontAwesomeIcon icon={faSyncAlt} className="text-blue-500 animate-spin" />
+                    )}
+                  </div>
 
-              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  style={{ width: `${progress}%` }}
-                  className="h-full bg-gradient-to-r from-blue-400 to-indigo-600 transition-all duration-500"
-                ></div>
-              </div>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      style={{ width: `${progress}%` }}
+                      className="h-full bg-gradient-to-r from-blue-400 to-indigo-600 transition-all duration-500"
+                    ></div>
+                  </div>
 
-              <div className="text-xs text-gray-600 text-center mt-2">
-                {converted ? 'Conversion Complete!' : `Processing... ${progress}%`}
-              </div>
+                  <div className="text-xs text-gray-600 text-center mt-2">
+                    {converted ? 'Conversion Complete!' : `Processing... ${progress}%`}
+                  </div>
+                </>
+              ) : (
+                <span className="text-sm text-gray-600">No notifications</span>
+              )}
             </div>
           )}
         </button>
