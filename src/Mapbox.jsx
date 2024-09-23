@@ -326,7 +326,7 @@ const handleClick = (e) => {
       const popupHTML = `
         <div style="text-align: center; padding: 10px; border-radius: 5px; background-color: rgba(255, 255, 255, 0.9);">
           <p style="margin: 5px 0;">Layer ID: ${key}</p>
-          <button style="padding: 5px 10px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;" onclick="sendToAI('${key}', ${coordinates.lng}, ${coordinates.lat})">Send to AI</button>
+          <button style="padding: 5px 10px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;" onclick="sendToAI('${key}', ${coordinates.lng}, ${coordinates.lat})">Run AI detection</button>
         </div>
       `;
       popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
