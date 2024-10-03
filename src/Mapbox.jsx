@@ -5,11 +5,11 @@ import ThemeSelector from './ThemeSwitcher';
 
 mapboxgl.accessToken = 'pk.eyJ1IjoidGFsaGF3YXFxYXMxNCIsImEiOiJjbHBreHhscWEwMWU4MnFyenU3ODdmeTdsIn0.8IlEgMNGcbx806t363hDJg';
 
-const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid}) => {
+const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
- 
+ console.log(tiffLayers)
 
 
   const epsg3857toEpsg4326 = (pos) => {
@@ -121,9 +121,7 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid}) => {
   }, [zoomid]);
 
   const boundsMapping = {
-    '0': [[9.1138091, 48.3772241], [9.1239029, 48.3824140]], // Bounds for raster-layer-1
-    '1': [[9.2970292, 47.7158867], [9.3093572, 47.7258356]], // Bounds for raster-layer-2
-    '2': [[9.1138093, 48.3772243], [9.1239031, 48.3824142]], // Bounds for raster-layer-3
+
   };
   
 
@@ -168,41 +166,49 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid}) => {
       }
     });
   
-// Define bounds for specific raster IDs
+ // Handle raster layers
+ tiffLayers.forEach(tiff => {
+  const { id, boundingBox, visible , mapboxUrl } = tiff;
 
-// Handle raster layers
-const rasterLayers = [
-  { id: 'raster-layer-1', url: 'mapbox://talhawaqqas14.new' },
-  { id: 'raster-layer-2', url: 'mapbox://talhawaqqas14.bigforest1' },
-  { id: 'raster-layer-3', url: 'mapbox://talhawaqqas14.forest2' },
-  { id: 'raster-layer-4', url: 'mapbox://talhawaqqas14.forest3' },
-  { id: 'raster-layer-5', url: 'mapbox://talhawaqqas14.forest4' },
-];
-
-rasterLayers.forEach(layer => {
-  const { id, url } = layer;
+  // Only proceed if the layer is visible
+  if (!visible) return;
 
   // Add source if it doesn't exist
-  if (!map.getSource(id)) {
-    map.addSource(id, {
+  if (!map.getSource(`raster-layer-${id}`)) {
+    map.addSource(`raster-layer-${id}`, {
       type: 'raster',
-      url: url,
+      tiles: [mapboxUrl], // Assuming the WMS URL returns tiles
       tileSize: 256,
     });
   }
 
   // Add layer if it doesn't exist
-  if (!map.getLayer(id)) {
+  if (!map.getLayer(`raster-layer-${id}`)) {
     map.addLayer({
-      id: id,
+      id: `raster-layer-${id}`,
       type: 'raster',
-      source: id,
+      source: `raster-layer-${id}`,
       layout: {},
       paint: {}
     });
   }
-});
 
+  // Automatically fit bounds based on boundingBox if provided
+  if (boundingBox) {
+    const { minx, miny, maxx, maxy } = boundingBox;
+    const bounds = [
+      [parseFloat(minx), parseFloat(miny)], // Southwest corner
+      [parseFloat(maxx), parseFloat(maxy)]  // Northeast corner
+    ];
+
+    // Fit bounds to the current layer
+    map.fitBounds(bounds, {
+      padding: { top: 10, bottom: 10, left: 10, right: 10 },
+      maxZoom: 15,
+      duration: 1
+    });
+  }
+});
 // Function to handle zooming based on rasterZoomId prop
 
     const layersToUpdate = {

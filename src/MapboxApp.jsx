@@ -8,6 +8,7 @@ import Topbar from './Topbar';
 
 const MapboxApp = () => {
   const [layers, setLayers] = useState([]);
+  const [tiffLayers, setTiffLayers] = useState([]); // Separate state for TIFF layers
   const [selectedLayerId, setSelectedLayerId] = useState('');
   const [zoomToLayerId, setZoomToLayerId] = useState(null);
   const [Rasterzoomid, setRasterzoomid] = useState(null);
@@ -118,10 +119,21 @@ setRasterzoomid(id);
       console.error("Error fetching saved layers:", error);
     }
   };
+  const handleTiffLayerUpload = (tiffLayer) => {
+    const existingLayer = tiffLayers.find(layer => layer.name === tiffLayer.name);
+    if (existingLayer) {
+      console.error('Layer with this name already exists');
+      return;
+    }
+
+    setTiffLayers(prevLayers => [...prevLayers, tiffLayer]);
+  };
+
 
   useEffect(() => {
     fetchSavedLayers();
   }, []);
+
 
   return (
     <>
@@ -137,8 +149,13 @@ setRasterzoomid(id);
         setSelectedLayerId={setSelectedLayerId}
         handleClickZoom={handleClickZoom}
         handleRasterZoom={handleRasterZoom}
+        onTiffLayerUpload={handleTiffLayerUpload} // New prop for TIFF layer upload
+        tiffLayers={tiffLayers} // Pass tiffLayers to Sidebar
+
+
       />
-      <MapboxMap layers={layers} zoomid={zoomToLayerId}  setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid} />
+      <MapboxMap layers={layers} zoomid={zoomToLayerId}  setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid} tiffLayers={tiffLayers} // Pass TIFF layers to MapboxMap
+ />
     </div>
     </>
   );
