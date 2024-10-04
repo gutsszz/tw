@@ -147,89 +147,107 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
     const map = mapRef.current;
     if (!map) return;
   
-    // Remove layers not present in the current state
+    // Cache current layer IDs
     const currentLayerIds = new Set(layers.flatMap(layer => [
       `geojson-layer-${layer.id}-points`,
       `geojson-layer-${layer.id}-lines`,
       `geojson-layer-${layer.id}-polygons`,
       `geojson-layer-${layer.id}-border`,
-      `raster-layer-${layer.id}` // Add raster layer IDs to this set
+      `raster-layer-${layer.id}`
     ]));
   
+    // Remove unused layers
     map.getStyle().layers.forEach(layer => {
-      if (layer.id.startsWith('geojson-layer-') && !currentLayerIds.has(layer.id)) {
-        map.removeLayer(layer.id);
-        map.removeSource(layer.id);
-      } else if (layer.id.startsWith('raster-layer-') && !currentLayerIds.has(layer.id)) {
+      if ((layer.id.startsWith('geojson-layer-') || layer.id.startsWith('raster-layer-')) && !currentLayerIds.has(layer.id)) {
         map.removeLayer(layer.id);
         map.removeSource(layer.id);
       }
     });
   
- // Handle raster layers
- tiffLayers.forEach(tiff => {
-  const { id, boundingBox, visible , mapboxUrl } = tiff;
-
-  // Only proceed if the layer is visible
-  if (!visible) return;
-
-  // Add source if it doesn't exist
-  if (!map.getSource(`raster-layer-${id}`)) {
-    map.addSource(`raster-layer-${id}`, {
-      type: 'raster',
-      tiles: [mapboxUrl], // Assuming the WMS URL returns tiles
-      tileSize: 256,
+    // Batch handle raster layers
+    const layersToFit = [];
+    tiffLayers.forEach(tiff => {
+      const { id, boundingBox, visible, mapboxUrl } = tiff;
+  
+      // Only proceed if the layer is visible
+      if (!visible) return;
+  
+      // Add or update raster source if necessary
+      const sourceId = `raster-layer-${id}`;
+      if (!map.getSource(sourceId)) {
+        map.addSource(sourceId, {
+          type: 'raster',
+          tiles: [mapboxUrl], // Assuming WMS returns tiles
+          tileSize: 256,
+        });
+      }
+  
+      // Add raster layer if necessary
+      if (!map.getLayer(sourceId)) {
+        map.addLayer({
+          id: sourceId,
+          type: 'raster',
+          source: sourceId,
+          layout: { visibility: 'visible' },
+        });
+      } else {
+        map.setLayoutProperty(sourceId, 'visibility', 'visible');
+      }
+  
+      // Prepare bounds fitting
+      if (boundingBox) {
+        layersToFit.push(boundingBox);
+      }
     });
-  }
-
-  // Add layer if it doesn't exist
-  if (!map.getLayer(`raster-layer-${id}`)) {
-    map.addLayer({
-      id: `raster-layer-${id}`,
-      type: 'raster',
-      source: `raster-layer-${id}`,
-      layout: {},
-      paint: {}
-    });
-  }
-
-  // Automatically fit bounds based on boundingBox if provided
-  if (boundingBox) {
-    const { minx, miny, maxx, maxy } = boundingBox;
-    const bounds = [
-      [parseFloat(minx), parseFloat(miny)], // Southwest corner
-      [parseFloat(maxx), parseFloat(maxy)]  // Northeast corner
-    ];
-
-    // Fit bounds to the current layer
-    map.fitBounds(bounds, {
-      padding: { top: 10, bottom: 10, left: 10, right: 10 },
-      maxZoom: 15,
-      duration: 1
-    });
-  }
-});
-// Function to handle zooming based on rasterZoomId prop
-
+  
+    // Batch fit bounds if there are visible raster layers with bounding boxes
+    if (layersToFit.length > 0) {
+      const allBounds = layersToFit.map(({ minx, miny, maxx, maxy }) => [
+        [parseFloat(minx), parseFloat(miny)],
+        [parseFloat(maxx), parseFloat(maxy)],
+      ]);
+  
+      // Find the union of all bounds to fit
+      const unionBounds = allBounds.reduce(
+        (acc, bounds) => [
+          [Math.min(acc[0][0], bounds[0][0]), Math.min(acc[0][1], bounds[0][1])],
+          [Math.max(acc[1][0], bounds[1][0]), Math.max(acc[1][1], bounds[1][1])],
+        ],
+        allBounds[0]
+      );
+  
+      // Only fit the map if the union bounds differ significantly from the current view
+      const currentBounds = map.getBounds();
+      if (
+        unionBounds[0][0] < currentBounds.getWest() || unionBounds[1][0] > currentBounds.getEast() ||
+        unionBounds[0][1] < currentBounds.getSouth() || unionBounds[1][1] > currentBounds.getNorth()
+      ) {
+        map.fitBounds(unionBounds, {
+          padding: { top: 10, bottom: 10, left: 10, right: 10 },
+          maxZoom: 15,
+          duration: 1000, // Slightly longer duration for smoother animation
+        });
+      }
+    }
+  
     const layersToUpdate = {
       points: [],
       lines: [],
-      polygons: []
+      polygons: [],
     };
   
-    // Function to get or create a source
+    // Helper function for source and layer management
     const getOrCreateSource = (sourceId, data) => {
       if (!map.getSource(sourceId)) {
         map.addSource(sourceId, {
           type: 'geojson',
-          data: data
+          data: data,
         });
       } else {
         map.getSource(sourceId).setData(data);
       }
     };
   
-    // Function to get or create a layer
     const getOrCreateLayer = (layerId, layerType, sourceId, paintOptions, visibility) => {
       if (!map.getLayer(layerId)) {
         map.addLayer({
@@ -238,37 +256,35 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
           source: sourceId,
           paint: paintOptions,
           layout: {
-            visibility: visibility ? 'visible' : 'none'
-          }
+            visibility: visibility ? 'visible' : 'none',
+          },
         });
       } else {
-        for (const [key, value] of Object.entries(paintOptions)) {
-          map.setPaintProperty(layerId, key, value);
-        }
-        // Update visibility dynamically
         map.setLayoutProperty(layerId, 'visibility', visibility ? 'visible' : 'none');
+        Object.entries(paintOptions).forEach(([key, value]) => {
+          map.setPaintProperty(layerId, key, value);
+        });
       }
     };
   
+    // Handle GeoJSON layers
     layers.forEach(layer => {
       const layerIdBase = `geojson-layer-${layer.id}`;
       const convertedGeoJSON = convertGeoJSON(layer.data);
   
       const pointFeatures = {
         type: 'FeatureCollection',
-        features: convertedGeoJSON.features.filter(feature => feature.geometry.type === 'Point')
+        features: convertedGeoJSON.features.filter(f => f.geometry.type === 'Point'),
       };
   
       const lineStringFeatures = {
         type: 'FeatureCollection',
-        features: convertedGeoJSON.features.filter(feature =>
-          feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString')
+        features: convertedGeoJSON.features.filter(f => f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString'),
       };
   
       const polygonFeatures = {
         type: 'FeatureCollection',
-        features: convertedGeoJSON.features.filter(feature =>
-          feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')
+        features: convertedGeoJSON.features.filter(f => f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'),
       };
   
       const visibility = layer.visible;
@@ -279,7 +295,7 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
         getOrCreateSource(pointLayerId, pointFeatures);
         getOrCreateLayer(pointLayerId, 'circle', pointLayerId, {
           'circle-color': '#FF0000',
-          'circle-radius': 5
+          'circle-radius': 5,
         }, visibility);
         layersToUpdate.points.push(pointLayerId);
       }
@@ -290,12 +306,12 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
         getOrCreateSource(lineLayerId, lineStringFeatures);
         getOrCreateLayer(lineLayerId, 'line', lineLayerId, {
           'line-color': '#0000FF',
-          'line-width': 2
+          'line-width': 2,
         }, visibility);
         layersToUpdate.lines.push(lineLayerId);
       }
   
-      // Handle Polygons
+      // Handle Polygons and Borders
       if (polygonFeatures.features.length > 0) {
         const polygonLayerId = `${layerIdBase}-polygons`;
         const borderLayerId = `${layerIdBase}-border`;
@@ -303,25 +319,21 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
         getOrCreateSource(polygonLayerId, polygonFeatures);
         getOrCreateLayer(polygonLayerId, 'fill', polygonLayerId, {
           'fill-color': '#00FF00',
-          'fill-opacity': 0.35
+          'fill-opacity': 0.35,
         }, visibility);
         layersToUpdate.polygons.push(polygonLayerId);
   
         getOrCreateSource(borderLayerId, polygonFeatures);
         getOrCreateLayer(borderLayerId, 'line', borderLayerId, {
           'line-color': '#009900',
-          'line-width': 2
+          'line-width': 2,
         }, visibility);
         layersToUpdate.polygons.push(borderLayerId);
       }
     });
   
-    const popup = new mapboxgl.Popup({
-      closeButton: true,
-      closeOnClick: true,
-      offset: [0, -10]
-    });
-  
+    // Popup handling
+    const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, offset: [0, -10] });
     const handlePopup = (e) => {
       const feature = e.features[0];
       const coordinates = e.lngLat;
@@ -334,22 +346,19 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
         </div>
       `;
   
-      popup
-        .setLngLat(coordinates)
-        .setHTML(popupHTML)
-        .addTo(map);
+      popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
     };
   
     layersToUpdate.polygons.forEach(polygonLayerId => {
       map.on('click', polygonLayerId, handlePopup);
     });
   
-  }, [layers, mapLoaded]);
+  }, [layers, tiffLayers, mapLoaded]);
   
   useEffect(() => {
     updateMapLayers();
   }, [updateMapLayers]);
-  
+   
 
   const handleThemeChange = (newTheme) => {
     if (!mapRef.current) return;
