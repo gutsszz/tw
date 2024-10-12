@@ -9,9 +9,8 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
- console.log(tiffLayers)
 
-
+console.log(Rasterzoomid);
   const epsg3857toEpsg4326 = (pos) => {
     let [x, y] = pos;
     x = (x * 180) / 20037508.34;
@@ -125,28 +124,17 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
   };
   
 
-  useEffect(() => { if (!mapLoaded) return;
-  
-    const map = mapRef.current;
-    if (!map) return;
-    const bounds = boundsMapping[Rasterzoomid];
-    if (bounds) {
-      map.fitBounds(bounds, {
-        padding: { top: 10, bottom: 10, left: 10, right: 10 },
-        maxZoom: 15,
-        duration:1
-      });
-    }
-  }, [Rasterzoomid]); // Runs whenever Rasterzoomid changes
-  
+ 
   
 
   const updateMapLayers = useCallback(() => {
     if (!mapLoaded) return;
-  
+
+    console.log(tiffLayers)
+
     const map = mapRef.current;
     if (!map) return;
-  
+
     // Cache current layer IDs
     const currentLayerIds = new Set(layers.flatMap(layer => [
       `geojson-layer-${layer.id}-points`,
@@ -155,7 +143,7 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
       `geojson-layer-${layer.id}-border`,
       `raster-layer-${layer.id}`
     ]));
-  
+
     // Remove unused layers
     map.getStyle().layers.forEach(layer => {
       if ((layer.id.startsWith('geojson-layer-') || layer.id.startsWith('raster-layer-')) && !currentLayerIds.has(layer.id)) {
@@ -163,50 +151,59 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
         map.removeSource(layer.id);
       }
     });
-  
+
     // Batch handle raster layers
     const layersToFit = [];
     tiffLayers.forEach(tiff => {
       const { id, boundingBox, visible, mapboxUrl } = tiff;
-  
-      // Only proceed if the layer is visible
-      if (!visible) return;
-  
-      // Add or update raster source if necessary
       const sourceId = `raster-layer-${id}`;
+    
+      // Add or update raster source if necessary
       if (!map.getSource(sourceId)) {
         map.addSource(sourceId, {
           type: 'raster',
           tiles: [mapboxUrl], // Assuming WMS returns tiles
-          tileSize: 256,
+          tileSize: 512,
         });
       }
-  
-      // Add raster layer if necessary
+    
+      // Handle visibility
       if (!map.getLayer(sourceId)) {
+        // Add raster layer if it doesn't exist yet, and apply the correct visibility
         map.addLayer({
           id: sourceId,
           type: 'raster',
           source: sourceId,
-          layout: { visibility: 'visible' },
+          layout: { visibility: visible ? 'visible' : 'none' }, // Set initial visibility
         });
       } else {
-        map.setLayoutProperty(sourceId, 'visibility', 'visible');
+        // Set visibility dynamically if the layer already exists
+        map.setLayoutProperty(sourceId, 'visibility', visible ? 'visible' : 'none');
       }
-  
-      // Prepare bounds fitting
-      if (boundingBox) {
-        layersToFit.push(boundingBox);
+    
+      // Fit the map bounds if visible and the layer is the one clicked for zooming
+      if (visible && Rasterzoomid === id && boundingBox) {
+        const bounds = [
+          [parseFloat(boundingBox.minx), parseFloat(boundingBox.miny)],
+          [parseFloat(boundingBox.maxx), parseFloat(boundingBox.maxy)]
+        ];
+    
+        map.fitBounds(bounds, {
+          padding: { top: 10, bottom: 10, left: 10, right: 10 },
+          maxZoom: 15,
+          duration: 1000, // Animation duration for zooming
+        });
       }
     });
-  
-    // Batch fit bounds if there are visible raster layers with bounding boxes
+    
+
+    // Batch fit bounds for all visible raster layers if there are bounding boxes
     if (layersToFit.length > 0) {
       const allBounds = layersToFit.map(({ minx, miny, maxx, maxy }) => [
         [parseFloat(minx), parseFloat(miny)],
         [parseFloat(maxx), parseFloat(maxy)],
       ]);
-  
+
       // Find the union of all bounds to fit
       const unionBounds = allBounds.reduce(
         (acc, bounds) => [
@@ -215,12 +212,14 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
         ],
         allBounds[0]
       );
-  
+
       // Only fit the map if the union bounds differ significantly from the current view
       const currentBounds = map.getBounds();
       if (
-        unionBounds[0][0] < currentBounds.getWest() || unionBounds[1][0] > currentBounds.getEast() ||
-        unionBounds[0][1] < currentBounds.getSouth() || unionBounds[1][1] > currentBounds.getNorth()
+        unionBounds[0][0] < currentBounds.getWest() ||
+        unionBounds[1][0] > currentBounds.getEast() ||
+        unionBounds[0][1] < currentBounds.getSouth() ||
+        unionBounds[1][1] > currentBounds.getNorth()
       ) {
         map.fitBounds(unionBounds, {
           padding: { top: 10, bottom: 10, left: 10, right: 10 },
@@ -230,6 +229,8 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
       }
     }
   
+
+    
     const layersToUpdate = {
       points: [],
       lines: [],
@@ -374,6 +375,42 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
     }); // Moved this closing parenthesis to the correct position
   };
   
+
+   const handleRasterZoom = useCallback(
+    (rasterId) => {
+      const map = mapRef.current;
+      const selectedTiff = tiffLayers.find(tiff => tiff.id === rasterId);
+
+      if (selectedTiff && selectedTiff.boundingBox) {
+        const { minx, miny, maxx, maxy } = selectedTiff.boundingBox;
+
+        map.fitBounds(
+          [
+            [parseFloat(minx), parseFloat(miny)],
+            [parseFloat(maxx), parseFloat(maxy)],
+          ],
+          {
+            padding: { top: 10, bottom: 10, left: 10, right: 10 },
+            maxZoom: 15,
+            duration: 0, // Smooth animation
+          }
+        );
+      }
+    },
+    [tiffLayers]
+  );
+
+  // Update the map when layers change
+  useEffect(() => {
+    updateMapLayers();
+  }, [updateMapLayers]);
+
+  // Zoom to selected raster when `Rasterzoomid` changes
+  useEffect(() => {
+    if (Rasterzoomid) {
+      handleRasterZoom(Rasterzoomid);
+    }
+  }, [Rasterzoomid, handleRasterZoom]);
   return (
     <div className="relative">
       <div ref={mapContainerRef} className="map-container" />
