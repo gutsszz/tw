@@ -154,7 +154,7 @@ setRasterzoomid(id);
           formData.append('fileName', fileName);
   
           try {
-            const response = await fetch('http://localhost:3001/upload', {
+            const response = await fetch('http://37.60.227.174:3009/upload', {
               method: 'POST',
               body: formData,
             });
