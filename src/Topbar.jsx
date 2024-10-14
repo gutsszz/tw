@@ -1,5 +1,5 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBell, faUser, faCheckCircle, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
+import { faBell, faUser, faCheckCircle, faSyncAlt, faSpinner } from '@fortawesome/free-solid-svg-icons'; // Import spinner icon
 import logo from './logo-1.png'; // Replace with your logo path
 
 const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen, showLoader }) => {
@@ -36,11 +36,11 @@ const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen
               {showLoader ? (
                 <>
                   <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-semibold text-gray-700">Notification</span>
-                    {converted ? (
-                      <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
+                    <span className="text-sm font-semibold text-gray-700">Uploading Raster</span>
+                    {!converted ? (
+                      <FontAwesomeIcon icon={faSpinner} className="text-blue-500 animate-spin" /> // Spinner for ongoing upload
                     ) : (
-                      <FontAwesomeIcon icon={faSyncAlt} className="text-blue-500 animate-spin" />
+                      <FontAwesomeIcon icon={faCheckCircle} className="text-green-500" />
                     )}
                   </div>
 
@@ -52,7 +52,7 @@ const TopBar = ({ isNotificationOpen, progress, converted, setIsNotificationOpen
                   </div>
 
                   <div className="text-xs text-gray-600 text-center mt-2">
-                    {converted ? 'Conversion Complete!' : `Processing... ${progress}%`}
+                    {converted ? 'Upload Complete!' : `Uploading... ${progress}%`}
                   </div>
                 </>
               ) : (
