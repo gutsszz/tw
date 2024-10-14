@@ -5,13 +5,12 @@ import ThemeSelector from './ThemeSwitcher';
 
 mapboxgl.accessToken = 'pk.eyJ1IjoidGFsaGF3YXFxYXMxNCIsImEiOiJjbHBreHhscWEwMWU4MnFyenU3ODdmeTdsIn0.8IlEgMNGcbx806t363hDJg';
 
-const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,getairequest,setRasterzoomid}) => {
+const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,tiffLayers}) => {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const [mapLoaded, setMapLoaded] = useState(false);
- 
 
-
+console.log(Rasterzoomid);
   const epsg3857toEpsg4326 = (pos) => {
     let [x, y] = pos;
     x = (x * 180) / 20037508.34;
@@ -121,102 +120,129 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,getairequest,setRasterzo
   }, [zoomid]);
 
   const boundsMapping = {
-    '0': [[9.1138091, 48.3772241], [9.1239029, 48.3824140]], // Bounds for raster-layer-1
-    '1': [[9.2970292, 47.7158867], [9.3093572, 47.7258356]], // Bounds for raster-layer-2
-    '2': [[9.2804, 45.6119], [9.2979, 45.6320]], // Bounds for raster-layer-3
-    
+
   };
   
 
-  useEffect(() => { if (!mapLoaded) return;
+ 
   
-    const map = mapRef.current;
-    if (!map) return;
-    const bounds = boundsMapping[Rasterzoomid];
-    if (bounds) {
-      map.fitBounds(bounds, {
-        padding: { top: 10, bottom: 10, left: 10, right: 10 },
-        maxZoom: 15,
-        duration:1
-      }); 
-      setRasterzoomid(null);
-    }
-  }, [Rasterzoomid]); // Runs whenever Rasterzoomid changes
-  
-  
+
   const updateMapLayers = useCallback(() => {
     if (!mapLoaded) return;
-  
+
+    console.log(tiffLayers)
+
     const map = mapRef.current;
     if (!map) return;
-  
-    // Remove layers not present in the current state
+
+    // Cache current layer IDs
     const currentLayerIds = new Set(layers.flatMap(layer => [
       `geojson-layer-${layer.id}-points`,
       `geojson-layer-${layer.id}-lines`,
       `geojson-layer-${layer.id}-polygons`,
       `geojson-layer-${layer.id}-border`,
-      `raster-layer-${layer.id}` // Add raster layer IDs to this set
+      `raster-layer-${layer.id}`
     ]));
-  
+
+    // Remove unused layers
     map.getStyle().layers.forEach(layer => {
-      if (layer.id.startsWith('geojson-layer-') && !currentLayerIds.has(layer.id)) {
-        map.removeLayer(layer.id);
-        map.removeSource(layer.id);
-      } else if (layer.id.startsWith('raster-layer-') && !currentLayerIds.has(layer.id)) {
+      if ((layer.id.startsWith('geojson-layer-') || layer.id.startsWith('raster-layer-')) && !currentLayerIds.has(layer.id)) {
         map.removeLayer(layer.id);
         map.removeSource(layer.id);
       }
     });
-  
-    // Define raster layers
-    const rasterLayers = [
-      { id: 'raster-layer-1', url: 'mapbox://talhawaqqas14.new' },
-      { id: 'raster-layer-2', url: 'mapbox://talhawaqqas14.bigforest1' },
-      { id: 'raster-layer-3', url: 'mapbox://talhawaqqas14.forest2' },
-      { id: 'raster-layer-4', url: 'mapbox://talhawaqqas14.forest3' },
-      { id: 'raster-layer-5', url: 'mapbox://talhawaqqas14.forest4' },
-      { id: 'raster-layer-6', url: 'mapbox://talhawaqqas14.auto1' },
-      { id: 'raster-layer-7', url: 'mapbox://talhawaqqas14.auto2' },
-      { id: 'raster-layer-8', url: 'mapbox://yamamah11.auto_3' },
-      { id: 'raster-layer-9', url: 'mapbox://yamamah11.auto_4' },
-    ];
-  
-    rasterLayers.forEach(layer => {
-      const { id, url } = layer;
-  
-      // Add source if it doesn't exist
-      if (!map.getSource(id)) {
-        map.addSource(id, {
+
+    // Batch handle raster layers
+    const layersToFit = [];
+    tiffLayers.forEach(tiff => {
+      const { id, boundingBox, visible, mapboxUrl } = tiff;
+      const sourceId = `raster-layer-${id}`;
+    
+      // Add or update raster source if necessary
+      if (!map.getSource(sourceId)) {
+        map.addSource(sourceId, {
           type: 'raster',
-          url: url,
+          tiles: [mapboxUrl], // Assuming WMS returns tiles
           tileSize: 512,
         });
       }
-  
-      // Add layer if it doesn't exist
-      if (!map.getLayer(id)) {
+    
+      // Handle visibility
+      if (!map.getLayer(sourceId)) {
+        // Add raster layer if it doesn't exist yet, and apply the correct visibility
         map.addLayer({
-          id: id,
+          id: sourceId,
           type: 'raster',
-          source: id,
-          layout: {},
-          paint: {}
+          source: sourceId,
+          layout: { visibility: visible ? 'visible' : 'none' }, // Set initial visibility
+        });
+      } else {
+        // Set visibility dynamically if the layer already exists
+        map.setLayoutProperty(sourceId, 'visibility', visible ? 'visible' : 'none');
+      }
+    
+      // Fit the map bounds if visible and the layer is the one clicked for zooming
+      if (visible && Rasterzoomid === id && boundingBox) {
+        const bounds = [
+          [parseFloat(boundingBox.minx), parseFloat(boundingBox.miny)],
+          [parseFloat(boundingBox.maxx), parseFloat(boundingBox.maxy)]
+        ];
+    
+        map.fitBounds(bounds, {
+          padding: { top: 10, bottom: 10, left: 10, right: 10 },
+          maxZoom: 15,
+          duration: 1000, // Animation duration for zooming
         });
       }
     });
+    
+
+    // Batch fit bounds for all visible raster layers if there are bounding boxes
+    if (layersToFit.length > 0) {
+      const allBounds = layersToFit.map(({ minx, miny, maxx, maxy }) => [
+        [parseFloat(minx), parseFloat(miny)],
+        [parseFloat(maxx), parseFloat(maxy)],
+      ]);
+
+      // Find the union of all bounds to fit
+      const unionBounds = allBounds.reduce(
+        (acc, bounds) => [
+          [Math.min(acc[0][0], bounds[0][0]), Math.min(acc[0][1], bounds[0][1])],
+          [Math.max(acc[1][0], bounds[1][0]), Math.max(acc[1][1], bounds[1][1])],
+        ],
+        allBounds[0]
+      );
+
+      // Only fit the map if the union bounds differ significantly from the current view
+      const currentBounds = map.getBounds();
+      if (
+        unionBounds[0][0] < currentBounds.getWest() ||
+        unionBounds[1][0] > currentBounds.getEast() ||
+        unionBounds[0][1] < currentBounds.getSouth() ||
+        unionBounds[1][1] > currentBounds.getNorth()
+      ) {
+        map.fitBounds(unionBounds, {
+          padding: { top: 10, bottom: 10, left: 10, right: 10 },
+          maxZoom: 15,
+          duration: 1000, // Slightly longer duration for smoother animation
+        });
+      }
+    }
   
+
+    
     const layersToUpdate = {
       points: [],
       lines: [],
-      polygons: []
+      polygons: [],
     };
   
+    // Helper function for source and layer management
     const getOrCreateSource = (sourceId, data) => {
       if (!map.getSource(sourceId)) {
         map.addSource(sourceId, {
           type: 'geojson',
-          data: data
+          data: data,
         });
       } else {
         map.getSource(sourceId).setData(data);
@@ -231,36 +257,35 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,getairequest,setRasterzo
           source: sourceId,
           paint: paintOptions,
           layout: {
-            visibility: visibility ? 'visible' : 'none'
-          }
+            visibility: visibility ? 'visible' : 'none',
+          },
         });
       } else {
-        for (const [key, value] of Object.entries(paintOptions)) {
-          map.setPaintProperty(layerId, key, value);
-        }
         map.setLayoutProperty(layerId, 'visibility', visibility ? 'visible' : 'none');
+        Object.entries(paintOptions).forEach(([key, value]) => {
+          map.setPaintProperty(layerId, key, value);
+        });
       }
     };
   
+    // Handle GeoJSON layers
     layers.forEach(layer => {
       const layerIdBase = `geojson-layer-${layer.id}`;
       const convertedGeoJSON = convertGeoJSON(layer.data);
   
       const pointFeatures = {
         type: 'FeatureCollection',
-        features: convertedGeoJSON.features.filter(feature => feature.geometry.type === 'Point')
+        features: convertedGeoJSON.features.filter(f => f.geometry.type === 'Point'),
       };
   
       const lineStringFeatures = {
         type: 'FeatureCollection',
-        features: convertedGeoJSON.features.filter(feature =>
-          feature.geometry.type === 'LineString' || feature.geometry.type === 'MultiLineString')
+        features: convertedGeoJSON.features.filter(f => f.geometry.type === 'LineString' || f.geometry.type === 'MultiLineString'),
       };
   
       const polygonFeatures = {
         type: 'FeatureCollection',
-        features: convertedGeoJSON.features.filter(feature =>
-          feature.geometry.type === 'Polygon' || feature.geometry.type === 'MultiPolygon')
+        features: convertedGeoJSON.features.filter(f => f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'),
       };
   
       const visibility = layer.visible;
@@ -271,7 +296,7 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,getairequest,setRasterzo
         getOrCreateSource(pointLayerId, pointFeatures);
         getOrCreateLayer(pointLayerId, 'circle', pointLayerId, {
           'circle-color': '#FF0000',
-          'circle-radius': 5
+          'circle-radius': 5,
         }, visibility);
         layersToUpdate.points.push(pointLayerId);
       }
@@ -282,12 +307,12 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,getairequest,setRasterzo
         getOrCreateSource(lineLayerId, lineStringFeatures);
         getOrCreateLayer(lineLayerId, 'line', lineLayerId, {
           'line-color': '#0000FF',
-          'line-width': 2
+          'line-width': 2,
         }, visibility);
         layersToUpdate.lines.push(lineLayerId);
       }
   
-      // Handle Polygons
+      // Handle Polygons and Borders
       if (polygonFeatures.features.length > 0) {
         const polygonLayerId = `${layerIdBase}-polygons`;
         const borderLayerId = `${layerIdBase}-border`;
@@ -295,90 +320,46 @@ const MapboxMap = ({ layers,zoomid,setZoom,Rasterzoomid,getairequest,setRasterzo
         getOrCreateSource(polygonLayerId, polygonFeatures);
         getOrCreateLayer(polygonLayerId, 'fill', polygonLayerId, {
           'fill-color': '#00FF00',
-          'fill-opacity': 0.35
+          'fill-opacity': 0.35,
         }, visibility);
-        
         layersToUpdate.polygons.push(polygonLayerId);
   
         getOrCreateSource(borderLayerId, polygonFeatures);
         getOrCreateLayer(borderLayerId, 'line', borderLayerId, {
           'line-color': '#009900',
-          'line-width': 2
+          'line-width': 2,
         }, visibility);
         layersToUpdate.polygons.push(borderLayerId);
       }
     });
-  const popup = new mapboxgl.Popup({
-  closeButton: true,
-  closeOnClick: true,
-  offset: [0, -10]
-});
-
-// Handle clicks on the map for bounds
-const handleClick = (e) => {
-  const coordinates = e.lngLat;
-
-  // Check if click is within any defined bounds
-  let isRasterPopup = false;
-  Object.entries(boundsMapping).forEach(([key, bound]) => {
-    const [[lon1, lat1], [lon2, lat2]] = bound;
-    if (coordinates.lng >= lon1 && coordinates.lng <= lon2 && coordinates.lat >= lat1 && coordinates.lat <= lat2) {
+  
+    // Popup handling
+    const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true, offset: [0, -10] });
+    const handlePopup = (e) => {
+      const feature = e.features[0];
+      const coordinates = e.lngLat;
+      const area = parseFloat(feature.properties.area);
+      const displayArea = isNaN(area) ? "Area's information not available" : `${area.toFixed(2)} m²`;
+  
       const popupHTML = `
-        <div style="text-align: center; padding: 10px; border-radius: 5px; background-color: rgba(255, 255, 255, 0.9);">
-          <p style="margin: 5px 0;">Layer ID: ${key}</p>
-          <button style="padding: 5px 10px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;" onclick="sendToAI('${key}', ${coordinates.lng}, ${coordinates.lat})">Run AI detection</button>
+        <div style="text-align: center;">
+          <p><strong>Area:</strong> ${displayArea}</p>
         </div>
       `;
+  
       popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
-      isRasterPopup = true; // Mark that a raster popup is displayed
-    }
-  });
-
-  // Handle other layer clicks (GeoJSON)
-  if (!isRasterPopup) {
-    const features = map.queryRenderedFeatures(e.point);
-    features.forEach(feature => {
-      if (feature.layer.id.startsWith('geojson-layer-')) {
-        const area = parseFloat(feature.properties.area);
-        const displayArea = isNaN(area) ? "Area's information not available" : `${area.toFixed(2)} m²`;
-
-        const popupHTML = `
-          <div style="text-align: center; padding: 10px; border-radius: 5px; background-color: rgba(255, 255, 255, 0.9);">
-            <p style="margin: 0; font-weight: bold;">Area Info:</p>
-            <p style="margin: 5px 0;">Area: ${displayArea}</p>
-          </div>
-        `;
-        popup.setLngLat(coordinates).setHTML(popupHTML).addTo(map);
-      }
+    };
+  
+    layersToUpdate.polygons.forEach(polygonLayerId => {
+      map.on('click', polygonLayerId, handlePopup);
     });
-  }
-};
-
-// Function to handle the AI button click
-function sendToAI(layerId, lng, lat) {
-  console.log(`Sending data for Layer ID: ${layerId} to AI...`);
-  getairequest(layerId);
-
-  // Close the current popup
-  popup.remove();
-
-  // Optionally, you can log a message or perform any other action here
-  console.log(`Data sent for Layer ID: ${layerId}`);
-}
-
-// Attach the sendToAI function to the global window object
-window.sendToAI = sendToAI;
-
-// Attach click event to the map
-map.on('click', handleClick);
-
-    
-  }, [layers, mapLoaded]);
+  
+  }, [layers, tiffLayers, mapLoaded]);
   
   useEffect(() => {
     updateMapLayers();
   }, [updateMapLayers]);
-    
+   
 
   const handleThemeChange = (newTheme) => {
     if (!mapRef.current) return;
@@ -394,6 +375,42 @@ map.on('click', handleClick);
     }); // Moved this closing parenthesis to the correct position
   };
   
+
+   const handleRasterZoom = useCallback(
+    (rasterId) => {
+      const map = mapRef.current;
+      const selectedTiff = tiffLayers.find(tiff => tiff.id === rasterId);
+
+      if (selectedTiff && selectedTiff.boundingBox) {
+        const { minx, miny, maxx, maxy } = selectedTiff.boundingBox;
+
+        map.fitBounds(
+          [
+            [parseFloat(minx), parseFloat(miny)],
+            [parseFloat(maxx), parseFloat(maxy)],
+          ],
+          {
+            padding: { top: 10, bottom: 10, left: 10, right: 10 },
+            maxZoom: 15,
+            duration: 0, // Smooth animation
+          }
+        );
+      }
+    },
+    [tiffLayers]
+  );
+
+  // Update the map when layers change
+  useEffect(() => {
+    updateMapLayers();
+  }, [updateMapLayers]);
+
+  // Zoom to selected raster when `Rasterzoomid` changes
+  useEffect(() => {
+    if (Rasterzoomid) {
+      handleRasterZoom(Rasterzoomid);
+    }
+  }, [Rasterzoomid, handleRasterZoom]);
   return (
     <div className="relative">
       <div ref={mapContainerRef} className="map-container" />
