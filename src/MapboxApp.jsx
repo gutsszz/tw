@@ -8,86 +8,26 @@ import Topbar from './Topbar';
 
 const MapboxApp = () => {
   const [layers, setLayers] = useState([]);
+  const [tiffLayers, setTiffLayers] = useState([]);
   const [selectedLayerId, setSelectedLayerId] = useState('');
   const [zoomToLayerId, setZoomToLayerId] = useState(null);
   const [Rasterzoomid, setRasterzoomid] = useState(null);
+  const [statusMessage, setStatusMessage] = useState(''); // Add status message state
+  const [activeSection, setActiveSection] = useState('geojson'); // Define activeSection state
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [progress, setProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false); // New state for upload status
-  const [converted, setConverted] = useState(false);
-  const geoJsonFiles = {
-    '0': '/Eichhalde_Sommer_results.geojson',
-    '1': '/Forsteinrichtung_Current.geojson',
-    '2': '/forset.geojson',
-  };
-  
-  const loadGeoJson = async (filePath) => {
-    try {
-      const response = await fetch(filePath);
-      const geojson = await response.json();
-  
-      // Extract the name from the file path (remove slashes and .geojson extension)
-      const fileName = filePath.split('/').pop().replace('.geojson', '');
-  
-      // Open the notification and start loading
-      setIsNotificationOpen(true);
-      setProgress(0);
-      setConverted(false);
-      setIsUploading(true); // Set uploading to true
-  
-      // Simulate progress
-      const interval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 100) {
-            clearInterval(interval);
-            return 100; // Ensure progress is capped at 100
-          }
-          return prev + 10; // Increment progress
-        });
-      }, 1000);
-  
-      // Simulate processing time
-      await new Promise((resolve) => setTimeout(resolve, 10000));
-  
-      // Handle the GeoJSON upload, passing the dynamic file name
-      handleGeoJsonUpload(geojson, fileName);
-  
-      // Mark as converted and close notification after a short delay
-      setConverted(true);
-      setIsUploading(false); // Set uploading to false after completion
-      setTimeout(() => {
-        setIsNotificationOpen(false);
-      }, 2000); // Close after 2 seconds
-    } catch (error) {
-      console.error("Error loading GeoJSON:", error);
-      setIsNotificationOpen(false); // Close on error
-    }
-  };
-  
-  
+  const [converted, setConverted] = useState(false); // New state to track upload completion
+
+
+  function handleRasterZoom(id){
+setRasterzoomid(id);
+  }
   const handleToggleLayer = (id) => {
     setLayers(layers.map(layer =>
       layer.id === id ? { ...layer, visible: !layer.visible } : layer
     ));
   };
-
-
-
-function getairequest(id){
-
-    const geojsonFile = geoJsonFiles[id];
-    if (geojsonFile) {
-      loadGeoJson(geojsonFile);
-      console.log("geojson id" + id);
-      
-    } else {
-      console.log("No corresponding GeoJSON file found for this layerId");
-    }
-
-  }
-
-
-  
 
   const handleGeoJsonUpload = (geojson, name) => {
     const existingLayer = layers.find(layer => layer.name === name);
@@ -105,7 +45,6 @@ function getairequest(id){
     };
     
     setLayers(prevLayers => [...prevLayers, newLayer]);
-    setConverted(true); // Indicate completion
   };
 
   const handleSaveLayer = async () => {
@@ -121,7 +60,7 @@ function getairequest(id){
     }
 
     try {
-      const userId = "userId1"; // Replace with the actual user ID
+      const userId = "userId1";
       const userDocRef = doc(db, "users", userId);
       const layerDocRef = doc(userDocRef, "layers", selectedLayer.name);
 
@@ -135,19 +74,12 @@ function getairequest(id){
     }
   };
 
-
- function handleRasterZoom(id) {
-setRasterzoomid(id);
- }
-
-
   const handleClickZoom = (layerId) => {
     const layer = layers.find(l => l.id === layerId);
     if (layer) {
       setZoomToLayerId(layerId);
     }
   };
-
 
   const handleDeleteLayer = async (id) => {
     try {
@@ -190,20 +122,127 @@ setRasterzoomid(id);
       console.error("Error fetching saved layers:", error);
     }
   };
+  const handleFileChange = async (event) => {
+    const file = event.target.files[0];
+    if (file) {
 
+      setProgress(0);           // Reset progress to 0
+    setConverted(false);       // Reset conversion status
+    setIsUploading(false);     // Ensure uploading state is false initially
+    setIsNotificationOpen(true);
+    
+      const reader = new FileReader();
+      const fileName = file.name;
+      const fileExtension = fileName.split('.').pop().toLowerCase();
+  
+      if (fileExtension === 'tiff' || fileExtension === 'tif') {
+        const CHUNK_SIZE = 1024 * 1024 * 10; // 10 MB per chunk
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        let uploadedChunks = 0;
+        
+        setStatusMessage(`Uploading ${fileName} in ${totalChunks} chunks...`);
+        setIsUploading(true);  // Set isUploading to true
+  
+        for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+          const start = chunkIndex * CHUNK_SIZE;
+          const end = Math.min(start + CHUNK_SIZE, file.size);
+          const chunk = file.slice(start, end);
+  
+          const formData = new FormData();
+          formData.append('chunk', chunk);
+          formData.append('chunkIndex', chunkIndex);
+          formData.append('totalChunks', totalChunks);
+          formData.append('fileName', fileName);
+  
+          try {
+            const response = await fetch('http://37.60.227.174:3009/upload', {
+              method: 'POST',
+              body: formData,
+            });
+  
+            const result = await response.json();
+            if (result.success) {
+              uploadedChunks++;
+              setProgress(Math.round((uploadedChunks / totalChunks) * 100));  // Update progress
+  
+              if (chunkIndex + 1 === totalChunks) {
+                setConverted(true);  // Set upload completion status
+                setStatusMessage('File uploaded and registered successfully with GeoServer!');
+                setIsUploading(false);  // Set isUploading to false
+                
+                // Add to tiffLayers
+                const mapboxUrl = result.mapboxUrl;
+                const boundingBox = result.boundingBox;
+                const outputFile = result.outputFile;
+                const workspace = "yamama";
+                const newId = Date.now();
+                const tiffLayer = {
+                  id: newId,
+                  name: outputFile,
+                  file,
+                  visible: true,
+                  workspace,
+                  outputFile,
+                  boundingBox,
+                  mapboxUrl,
+                };
+                setTiffLayers((prevTiffLayers) => [...prevTiffLayers, tiffLayer]);
+              }
+            } else {
+              setStatusMessage(`Failed to upload chunk ${chunkIndex + 1}`);
+              setIsUploading(false);  // Reset isUploading on failure
+              return;
+            }
+          } catch (error) {
+            console.error('Error processing file:', error);
+            setIsUploading(false);  // Reset isUploading on error
+          }
+        }
+  
+        event.target.value = ''; // Clear file input after upload
+      }
+    }
+  };
+  
+  const handleDeleteTiffLayer = async (tiffLayerId, workspace, layerName) => {
+    try {
+        // Send the delete request to the Python backend
+        const layerResponse = await fetch(`http://127.0.0.1:5000/delete-layer`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ workspace, layerName })
+        });
+
+        if (!layerResponse.ok) {
+            const errorResponse = await layerResponse.json();
+            throw new Error(`Failed to delete layer from GeoServer: ${errorResponse.message || layerResponse.statusText}`);
+        }
+
+        // Remove the TIFF layer from the state (UI)
+        setTiffLayers(prevTiffLayers => prevTiffLayers.filter(tiff => tiff.id !== tiffLayerId));
+
+        setStatusMessage(`TIFF layer '${layerName}' and its store deleted successfully.`);
+    } catch (error) {
+        console.error("Error deleting TIFF layer:", error);
+        setStatusMessage(`Failed to delete TIFF layer '${layerName}'.`);
+    }
+};
+  
   useEffect(() => {
     fetchSavedLayers();
   }, []);
 
   return (
     <>
-      <Topbar
-        isNotificationOpen={isNotificationOpen}
-        progress={isUploading ? progress : 0} // Show progress only if uploading
-        converted={converted}
-        setIsNotificationOpen={setIsNotificationOpen}
-        showLoader={isUploading} // Pass the upload status to Topbar
-      />
+     <Topbar
+  isNotificationOpen={isNotificationOpen}
+  progress={isUploading ? progress : 0} // Show progress only if uploading
+  converted={converted} // Show completion status
+  setIsNotificationOpen={setIsNotificationOpen}
+  showLoader={isUploading} // Pass the upload status to Topbar
+/>
       <div className="flex">
         <Sidebar 
           onGeoJsonUpload={handleGeoJsonUpload} 
@@ -213,9 +252,17 @@ setRasterzoomid(id);
           onDeleteLayer={handleDeleteLayer}
           setSelectedLayerId={setSelectedLayerId}
           handleClickZoom={handleClickZoom}
+          tiffLayers={tiffLayers}
+        
+          onFileChange={handleFileChange} // Pass the file change handler
+          setTiffLayers={setTiffLayers} // Add this line
+          setActiveSection={setActiveSection}
+          activeSection={activeSection}
           handleRasterZoom={handleRasterZoom}
+          handleDeleteTiffLayer={handleDeleteTiffLayer}  // Pass the handler as a prop
+
         />
-        <MapboxMap layers={layers} zoomid={zoomToLayerId} setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid} getairequest={getairequest} setRasterzoomid={setRasterzoomid} />
+        <MapboxMap layers={layers} zoomid={zoomToLayerId} setZoom={setZoomToLayerId} Rasterzoomid={Rasterzoomid} tiffLayers={tiffLayers} />
       </div>
     </>
   );
