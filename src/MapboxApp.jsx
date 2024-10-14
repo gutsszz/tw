@@ -154,7 +154,7 @@ setRasterzoomid(id);
           formData.append('fileName', fileName);
   
           try {
-            const response = await fetch('http://37.60.227.174:3009/upload', {
+            const response = await fetch('http://localhost:3001/upload', {
               method: 'POST',
               body: formData,
             });
@@ -175,24 +175,24 @@ setRasterzoomid(id);
             if (chunkIndex + 1 === totalChunks) {
               setStatusMessage('File uploaded and registered successfully with GeoServer!');
   
-              const wmsUrl = result.wmsUrl;
+             
               const mapboxUrl = result.mapboxUrl;
-              const urlParams = new URLSearchParams(wmsUrl.split('?')[1]);
-              const layersParam = urlParams.get('layers');
-              const [workspace, layerName] = layersParam.split(':');
+              const boundingBox = result.boundingBox;
+              const outputFile = result.outputFile;
+
+              const workspace = "yamama";
+
   
-              const baseName = fileName.split('.').slice(0, -1).join('.');
               const newId = Date.now(); // Unique ID based on timestamp
   
               const tiffLayer = {
                 id: newId,
-                name: baseName,
+                name: outputFile,
                 file,
                 visible: true,
-                wmsUrl,
                 workspace,
-                layerName,
-                boundingBox: result.boundingBox,
+                outputFile,
+                boundingBox: boundingBox,
                 mapboxUrl,
               };
   
@@ -213,9 +213,13 @@ setRasterzoomid(id);
 
   const handleDeleteTiffLayer = async (tiffLayerId, workspace, layerName) => {
     try {
-        // Delete the layer (and store) from GeoServer
-        const layerResponse = await fetch(`http://localhost:3001/geoserver/layer/${workspace}/${layerName}`, {
+        // Send the delete request to the Python backend
+        const layerResponse = await fetch(`http://127.0.0.1:5000/delete-layer`, {
             method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ workspace, layerName })
         });
 
         if (!layerResponse.ok) {

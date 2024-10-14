@@ -107,7 +107,7 @@
                       className="text-gray-500 hover:text-gray-700"
                       onClick={(e) => {
                         e.stopPropagation(); // Prevent triggering handleRasterZoom on trash click
-                        handleDeleteTiffLayer(tiff.id, tiff.workspace, tiff.layerName); // Call the deletion function
+                        handleDeleteTiffLayer(tiff.id, tiff.workspace, tiff.outputFile); // Call the deletion function
                       }}
                     >
                       <TrashIcon className="h-5 w-5" />
