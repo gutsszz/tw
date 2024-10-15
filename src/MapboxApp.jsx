@@ -122,20 +122,30 @@ setRasterzoomid(id);
       console.error("Error fetching saved layers:", error);
     }
   };
-  const handleFileChange = async (event) => {
+  
+    const handleFileChange = async (event) => {
     const file = event.target.files[0];
     if (file) {
-
-      setProgress(0);           // Reset progress to 0
-    setConverted(false);       // Reset conversion status
-    setIsUploading(false);     // Ensure uploading state is false initially
-    setIsNotificationOpen(true);
-    
       const reader = new FileReader();
       const fileName = file.name;
       const fileExtension = fileName.split('.').pop().toLowerCase();
   
-      if (fileExtension === 'tiff' || fileExtension === 'tif') {
+      if (fileExtension === 'geojson') {
+        reader.onload = () => {
+          try {
+            const geojson = JSON.parse(reader.result);
+            const baseName = fileName.split('.').slice(0, -1).join('.');
+            handleGeoJsonUpload(geojson, baseName);
+          } catch (error) {
+            console.error('Error parsing GeoJSON:', error);
+          }
+        };
+        reader.readAsText(file);
+      } else if (fileExtension === 'tiff' || fileExtension === 'tif') {
+      setProgress(0);           // Reset progress to 0
+      setConverted(false);       // Reset conversion status
+      setIsUploading(false);     // Ensure uploading state is false initially
+      setIsNotificationOpen(true);
         const CHUNK_SIZE = 1024 * 1024 * 10; // 10 MB per chunk
         const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
         let uploadedChunks = 0;
@@ -155,7 +165,7 @@ setRasterzoomid(id);
           formData.append('fileName', fileName);
   
           try {
-            const response = await fetch('https://nodeback.duckdns.org:3009/upload', {
+            const response = await fetch('https://37.60.227.174:3009/upload', {
               method: 'POST',
               body: formData,
             });
@@ -204,6 +214,7 @@ setRasterzoomid(id);
     }
   };
   
+
   const handleDeleteTiffLayer = async (tiffLayerId, workspace, layerName) => {
     try {
         // Send the delete request to the Python backend
