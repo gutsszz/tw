@@ -165,7 +165,7 @@ setRasterzoomid(id);
           formData.append('fileName', fileName);
   
           try {
-            const response = await fetch('https://37.60.227.174:3009/upload', {
+             const response = await fetch('https://nodeback.duckdns.org:3009/upload', {
               method: 'POST',
               body: formData,
             });
